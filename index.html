@@ -3,81 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Timbre Escolar - Firebase</title>
+    <title>Panel de Control - Timbre Inteligente</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; text-align: center; }
-        .container { max-width: 500px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-        h2 { color: #1a73e8; margin-bottom: 20px; }
-        .row { display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid #eee; }
-        .row:last-child { border-bottom: none; }
-        input[type="time"] { padding: 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
-        input[type="checkbox"] { transform: scale(1.5); cursor: pointer; }
-        .btn { width: 100%; padding: 15px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 15px; transition: 0.3s; }
-        .btn-save { background-color: #28a745; color: white; }
-        .btn-save:hover { background-color: #218838; }
-        .btn-manual { background-color: #dc3545; color: white; }
-        .btn-manual:hover { background-color: #c82333; }
-        .status { margin-top: 10px; font-size: 0.9em; color: #666; }
+        :root { --primary: #2563eb; --danger: #dc2626; --success: #16a34a; --bg: #f8fafc; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #1e293b; }
+        .container { max-width: 600px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2 { margin-top: 0; font-size: 1.25rem; display: flex; align-items: center; gap: 10px; }
+        
+        /* Lista de toques activos */
+        .toque-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9; }
+        .toque-info { font-size: 1.1rem; font-weight: 600; }
+        
+        /* Controles */
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn { border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: opacity 0.2s; color: white; width: 100%; }
+        .btn-blue { background: var(--primary); }
+        .btn-red { background: var(--danger); }
+        .btn-green { background: var(--success); }
+        .btn-delete { background: none; color: var(--danger); font-size: 0.9rem; padding: 5px; }
+        .btn:active { opacity: 0.8; }
+
+        input[type="time"] { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; }
+        .empty-state { text-align: center; color: #64748b; padding: 20px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>🔔 Programación de Timbres</h2>
-        <div id="horarios-list"></div>
-        <button class="btn btn-save" onclick="guardarConfiguracion()">💾 GUARDAR CAMBIOS</button>
-        <button class="btn btn-manual" onclick="activarManual()">🔔 TOQUE MANUAL INMEDIATO</button>
-        <div id="status" class="status">Cargando datos...</div>
+
+<div class="container">
+    <div class="card">
+        <h2>🔔 Toques Programados</h2>
+        <div id="lista-toques">
+            <div class="empty-state">No hay horarios programados</div>
+        </div>
     </div>
 
-    <script>
-        // Tu configuración de Firebase
-        const firebaseConfig = { databaseURL: "https://sistematimbre-default-rtdb.firebaseio.com/" };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+    <div class="card">
+        <h2>⚙️ Configurar Nuevo Toque</h2>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <input type="time" id="nuevo-horario" style="flex-grow: 1;">
+            <button class="btn btn-green" onclick="agregarToque()" style="width: auto;">+ Agregar</button>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-blue" onclick="actualizarHoraRTC()">🕒 Sincronizar Hora</button>
+            <button class="btn btn-red" onclick="toqueManual()">🔔 Toque Manual</button>
+        </div>
+    </div>
+</div>
 
-        // Generar los 20 campos de entrada
-        const listDiv = document.getElementById('horarios-list');
-        for (let i = 0; i < 20; i++) {
-            listDiv.innerHTML += `
-                <div class="row">
-                    <span><b>Toque ${i + 1}:</b></span>
-                    <input type="time" id="t_${i}" value="00:00">
-                    <input type="checkbox" id="a_${i}">
+<script>
+    const firebaseConfig = { databaseURL: "https://sistematimbre-default-rtdb.firebaseio.com/" };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // Escuchar cambios en tiempo real
+    db.ref('timbres').on('value', (snapshot) => {
+        const listaDiv = document.getElementById('lista-toques');
+        const data = snapshot.val();
+        listaDiv.innerHTML = '';
+
+        if (!data) {
+            listaDiv.innerHTML = '<div class="empty-state">No hay horarios programados</div>';
+            return;
+        }
+
+        Object.keys(data).forEach(id => {
+            const t = data[id];
+            listaDiv.innerHTML += `
+                <div class="toque-item">
+                    <div class="toque-info">${t.h.toString().padStart(2,'0')}:${t.m.toString().padStart(2,'0')}</div>
+                    <button class="btn-delete" onclick="eliminarToque('${id}')">Eliminar</button>
                 </div>`;
-        }
-
-        // Leer datos actuales de Firebase
-        db.ref('timbres').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                data.forEach((item, i) => {
-                    document.getElementById(`t_${i}`).value = `${String(item.h).padStart(2, '0')}:${String(item.m).padStart(2, '0')}`;
-                    document.getElementById(`a_${i}`).checked = item.act;
-                });
-                document.getElementById('status').innerText = "Sincronizado con Firebase";
-            }
         });
+    });
 
-        function guardarConfiguracion() {
-            let data = [];
-            for (let i = 0; i < 20; i++) {
-                let timeParts = document.getElementById(`t_${i}`).value.split(':');
-                data.push({
-                    h: parseInt(timeParts[0]),
-                    m: parseInt(timeParts[1]),
-                    act: document.getElementById(`a_${i}`).checked
-                });
-            }
-            db.ref('timbres').set(data).then(() => alert("✅ ¡Horarios actualizados en la nube!"));
-        }
+    function agregarToque() {
+        const val = document.getElementById('nuevo-horario').value;
+        if (!val) return;
+        const [h, m] = val.split(':').map(Number);
+        db.ref('timbres').push({ h, m, act: true });
+    }
 
-        function activarManual() {
-            db.ref('manual').set(true).then(() => {
-                setTimeout(() => db.ref('manual').set(false), 2000);
-            });
-        }
-    </script>
+    function eliminarToque(id) {
+        if(confirm('¿Eliminar este toque?')) db.ref('timbres/' + id).remove();
+    }
+
+    function toqueManual() {
+        db.ref('manual').set(true).then(() => {
+            setTimeout(() => db.ref('manual').set(false), 2000);
+        });
+    }
+
+    function actualizarHoraRTC() {
+        const ahora = new Date();
+        db.ref('comando_hora').set({
+            h: ahora.getHours(),
+            m: ahora.getMinutes(),
+            s: ahora.getSeconds(),
+            d: ahora.getDate(),
+            mes: ahora.getMonth() + 1,
+            a: ahora.getFullYear()
+        });
+        alert("Comando de actualización enviado al ESP32");
+    }
+</script>
 </body>
 </html>
