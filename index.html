@@ -3,130 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control - Timbre Inteligente</title>
+    <title>Control de Timbre - Acceso Restringido</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <style>
-        :root { --primary: #2563eb; --danger: #dc2626; --success: #16a34a; --warning: #f59e0b; --dark: #1e293b; --bg: #f8fafc; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #1e293b; }
-        .container { max-width: 600px; margin: auto; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        h2 { margin-top: 0; font-size: 1.25rem; display: flex; align-items: center; gap: 10px; }
+        :root { --primary: #2563eb; --danger: #dc2626; --success: #16a34a; --bg: #f8fafc; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+        .container { max-width: 500px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
         
-        .toque-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9; }
-        .toque-info { font-size: 1.1rem; font-weight: 600; }
+        /* Estilos del Login */
+        #login-section { margin-top: 50px; text-align: center; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; }
         
-        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .btn { border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; color: white; width: 100%; text-align: center; }
+        /* Botones */
+        .btn { border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; color: white; width: 100%; margin: 5px 0; }
         .btn-blue { background: var(--primary); }
         .btn-red { background: var(--danger); }
         .btn-green { background: var(--success); }
-        .btn-dark { background: var(--dark); }
-        .btn-delete { background: none; color: var(--danger); font-size: 0.9rem; padding: 5px; border:none; cursor:pointer; }
-        .btn:active { transform: scale(0.98); opacity: 0.9; }
+        .btn-logout { background: #64748b; margin-top: 20px; }
 
-        input[type="time"] { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; }
-        .empty-state { text-align: center; color: #64748b; padding: 20px; }
-        
-        /* Estilo para el estado del sistema */
-        .status-banner { padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; }
-        .status-on { background: #dcfce7; color: #166534; border: 1px solid #16a34a; }
-        .status-off { background: #fee2e2; color: #991b1b; border: 1px solid #dc2626; }
+        .hidden { display: none; }
+        .toque-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #f1f5f9; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="card">
-        <div id="banner-estado" class="status-banner">Cargando estado...</div>
-        <h2>🔔 Toques Programados</h2>
-        <div id="lista-toques">
-            <div class="empty-state">No hay horarios programados</div>
-        </div>
+    <div id="login-section" class="card">
+        <h2>🔐 Acceso al Sistema</h2>
+        <input type="email" id="email" placeholder="Correo electrónico">
+        <input type="password" id="password" placeholder="Contraseña">
+        <button class="btn btn-blue" onclick="login()">Iniciar Sesión</button>
+        <p id="login-error" style="color: red; font-size: 0.9rem;"></p>
     </div>
 
-    <div class="card">
-        <h2>⚙️ Configuración Global</h2>
-        <div style="margin-bottom: 15px;">
-            <button id="btn-maestro" class="btn" onclick="toggleEstadoMaestro()">Cargando...</button>
+    <div id="control-section" class="hidden">
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>🔔 Panel de Control</h3>
+                <button class="btn btn-logout" onclick="logout()" style="width:auto; padding:5px 10px;">Cerrar</button>
+            </div>
+            <div id="lista-toques"></div>
         </div>
-        
-        <h2>➕ Agregar Nuevo Toque</h2>
-        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-            <input type="time" id="nuevo-horario" style="flex-grow: 1;">
-            <button class="btn btn-green" onclick="agregarToque()" style="width: auto;">+ Agregar</button>
-        </div>
-        
-        <div class="controls">
-            <button class="btn btn-blue" onclick="actualizarHoraRTC()">🕒 Sincronizar Hora</button>
+
+        <div class="card">
+            <h3>⚙️ Configuración</h3>
+            <input type="time" id="nuevo-horario">
+            <button class="btn btn-green" onclick="agregarToque()">+ Agregar Toque</button>
             <button class="btn btn-red" onclick="toqueManual()">🔔 Toque Manual</button>
+            <button class="btn btn-blue" onclick="sincronizarHora()">🕒 Sincronizar RTC</button>
         </div>
     </div>
 </div>
 
 <script>
-    const firebaseConfig = { databaseURL: "https://sistematimbre-default-rtdb.firebaseio.com/" };
+    // CONFIGURACIÓN (Usa tus datos reales aquí)
+    const firebaseConfig = {
+        apiKey: "TU_API_KEY_AQUÍ", // La encuentras en Configuración del Proyecto
+        databaseURL: "https://sistematimbre-default-rtdb.firebaseio.com/",
+        projectId: "sistematimbre-default",
+        authDomain: "sistematimbre-default.firebaseapp.com"
+    };
+    
     firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
     const db = firebase.database();
 
-    let sistemaActivo = true;
-
-    // 1. Escuchar el estado maestro del sistema
-    db.ref('estado_maestro').on('value', (snapshot) => {
-        sistemaActivo = snapshot.val() !== false; // Por defecto true si no existe
-        const btn = document.getElementById('btn-maestro');
-        const banner = document.getElementById('banner-estado');
-
-        if (sistemaActivo) {
-            btn.innerText = "⏸️ Desactivar Todos los Toques";
-            btn.className = "btn btn-dark";
-            banner.innerText = "✅ SISTEMA DE TOQUES ACTIVO";
-            banner.className = "status-banner status-on";
+    // 1. GESTIÓN DE SESIÓN
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('control-section').classList.remove('hidden');
+            cargarDatos();
         } else {
-            btn.innerText = "▶️ Reactivar Todos los Toques";
-            btn.className = "btn btn-green";
-            banner.innerText = "🚫 SISTEMA DE TOQUES PAUSADO";
-            banner.className = "status-banner status-off";
+            document.getElementById('login-section').classList.remove('hidden');
+            document.getElementById('control-section').classList.add('hidden');
         }
     });
 
-    // 2. Escuchar lista de toques
-    db.ref('timbres').on('value', (snapshot) => {
-        const listaDiv = document.getElementById('lista-toques');
-        const data = snapshot.val();
-        listaDiv.innerHTML = '';
-
-        if (!data) {
-            listaDiv.innerHTML = '<div class="empty-state">No hay horarios programados</div>';
-            return;
-        }
-
-        Object.keys(data).forEach(id => {
-            const t = data[id];
-            listaDiv.innerHTML += `
-                <div class="toque-item">
-                    <div class="toque-info" style="color: ${sistemaActivo ? '#1e293b' : '#94a3b8'}">
-                        ${t.h.toString().padStart(2,'0')}:${t.m.toString().padStart(2,'0')}
-                    </div>
-                    <button class="btn-delete" onclick="eliminarToque('${id}')">Eliminar</button>
-                </div>`;
+    function login() {
+        const email = document.getElementById('email').value;
+        const pass = document.getElementById('password').value;
+        auth.signInWithEmailAndPassword(email, pass).catch(error => {
+            document.getElementById('login-error').innerText = "Acceso denegado: " + error.message;
         });
-    });
+    }
 
-    function toggleEstadoMaestro() {
-        db.ref('estado_maestro').set(!sistemaActivo);
+    function logout() { auth.signOut(); }
+
+    // 2. FUNCIONES DEL TIMBRE
+    function cargarDatos() {
+        db.ref('timbres').on('value', snapshot => {
+            const lista = document.getElementById('lista-toques');
+            lista.innerHTML = '';
+            snapshot.forEach(child => {
+                const t = child.val();
+                lista.innerHTML += `
+                    <div class="toque-item">
+                        <span>${t.h}:${t.m}</span>
+                        <button onclick="eliminarToque('${child.key}')" style="color:red; border:none; background:none; cursor:pointer;">Eliminar</button>
+                    </div>`;
+            });
+        });
     }
 
     function agregarToque() {
         const val = document.getElementById('nuevo-horario').value;
         if (!val) return;
         const [h, m] = val.split(':').map(Number);
-        db.ref('timbres').push({ h, m, act: true });
-        document.getElementById('nuevo-horario').value = "";
-    }
-
-    function eliminarToque(id) {
-        if(confirm('¿Eliminar este toque?')) db.ref('timbres/' + id).remove();
+        db.ref('timbres').push({ h, m });
     }
 
     function toqueManual() {
@@ -135,18 +122,13 @@
         });
     }
 
-    function actualizarHoraRTC() {
-        const ahora = new Date();
-        db.ref('comando_hora').set({
-            h: ahora.getHours(),
-            m: ahora.getMinutes(),
-            s: ahora.getSeconds(),
-            d: ahora.getDate(),
-            mes: ahora.getMonth() + 1,
-            a: ahora.getFullYear()
-        });
-        alert("Comando de actualización enviado");
+    function sincronizarHora() {
+        const n = new Date();
+        db.ref('comando_hora').set({ h: n.getHours(), m: n.getMinutes(), s: n.getSeconds(), d: n.getDate(), mes: n.getMonth()+1, a: n.getFullYear() });
+        alert("Hora enviada");
     }
+
+    function eliminarToque(id) { if(confirm('¿Eliminar?')) db.ref('timbres/'+id).remove(); }
 </script>
 </body>
 </html>
