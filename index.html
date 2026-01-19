@@ -3,132 +3,138 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Timbre - Acceso Restringido</title>
+    <title>Panel de Control - Acceso Protegido</title>
+    
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-    <style>
-        :root { --primary: #2563eb; --danger: #dc2626; --success: #16a34a; --bg: #f8fafc; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
-        .container { max-width: 500px; margin: auto; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        
-        /* Estilos del Login */
-        #login-section { margin-top: 50px; text-align: center; }
-        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; }
-        
-        /* Botones */
-        .btn { border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; color: white; width: 100%; margin: 5px 0; }
-        .btn-blue { background: var(--primary); }
-        .btn-red { background: var(--danger); }
-        .btn-green { background: var(--success); }
-        .btn-logout { background: #64748b; margin-top: 20px; }
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
+    <style>
+        :root { --primary: #2563eb; --danger: #dc2626; --success: #16a34a; --bg: #f1f5f9; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+        .container { width: 100%; max-width: 450px; padding: 20px; }
+        .card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        h2, h3 { margin-top: 0; color: #1e293b; text-align: center; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
+        .btn { border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; color: white; width: 100%; transition: 0.3s; margin-top: 10px; }
+        .btn-blue { background: var(--primary); }
+        .btn-green { background: var(--success); }
+        .btn-red { background: var(--danger); }
+        .btn-logout { background: #64748b; font-size: 0.8rem; width: auto; padding: 5px 15px; }
         .hidden { display: none; }
-        .toque-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #f1f5f9; }
+        .toque-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #f1f5f9; font-weight: bold; }
+        #error-msg { color: var(--danger); font-size: 0.85rem; text-align: center; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div id="login-section" class="card">
-        <h2>🔐 Acceso al Sistema</h2>
-        <input type="email" id="email" placeholder="Correo electrónico">
-        <input type="password" id="password" placeholder="Contraseña">
-        <button class="btn btn-blue" onclick="login()">Iniciar Sesión</button>
-        <p id="login-error" style="color: red; font-size: 0.9rem;"></p>
+    <div id="login-box" class="card">
+        <h2>🔒 Timbre Inteligente</h2>
+        <p style="text-align: center; color: #64748b;">Ingrese credenciales de administrador</p>
+        <div id="error-msg"></div>
+        <input type="email" id="user-email" placeholder="Correo electrónico">
+        <input type="password" id="user-pass" placeholder="Contraseña">
+        <button class="btn btn-blue" onclick="handleLogin()">Entrar al Panel</button>
     </div>
 
-    <div id="control-section" class="hidden">
-        <div class="card">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h3>🔔 Panel de Control</h3>
-                <button class="btn btn-logout" onclick="logout()" style="width:auto; padding:5px 10px;">Cerrar</button>
+    <div id="panel-box" class="card hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>⚙️ Panel de Control</h3>
+            <button class="btn btn-logout" onclick="handleLogout()">Cerrar Sesión</button>
+        </div>
+        
+        <div id="lista-toques" style="margin: 20px 0; max-height: 200px; overflow-y: auto;">
             </div>
-            <div id="lista-toques"></div>
-        </div>
 
-        <div class="card">
-            <h3>⚙️ Configuración</h3>
-            <input type="time" id="nuevo-horario">
-            <button class="btn btn-green" onclick="agregarToque()">+ Agregar Toque</button>
-            <button class="btn btn-red" onclick="toqueManual()">🔔 Toque Manual</button>
-            <button class="btn btn-blue" onclick="sincronizarHora()">🕒 Sincronizar RTC</button>
-        </div>
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+        
+        <input type="time" id="nuevo-horario">
+        <button class="btn btn-green" onclick="addTime()">+ Agregar Horario</button>
+        <button class="btn btn-red" onclick="manualRing()">🔔 Toque Manual</button>
+        <button class="btn btn-blue" style="background: #8b5cf6;" onclick="syncRTC()">🕒 Sincronizar Reloj</button>
     </div>
 </div>
 
 <script>
-    // CONFIGURACIÓN (Usa tus datos reales aquí)
+    // TUS CREDENCIALES REALES
     const firebaseConfig = {
-        apiKey: "TU_API_KEY_AQUÍ", // La encuentras en Configuración del Proyecto
-        databaseURL: "https://sistematimbre-default-rtdb.firebaseio.com/",
-        projectId: "sistematimbre-default",
-        authDomain: "sistematimbre-default.firebaseapp.com"
+        apiKey: "AIzaSyAbTb-cXeJmmPprRaVTqSyBiEyoEGv93f0",
+        authDomain: "sistematimbre.firebaseapp.com",
+        databaseURL: "https://sistematimbre-default-rtdb.firebaseio.com",
+        projectId: "sistematimbre"
     };
-    
+
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.database();
 
-    // 1. GESTIÓN DE SESIÓN
+    // Vigilar el estado de la sesión
     auth.onAuthStateChanged(user => {
         if (user) {
-            document.getElementById('login-section').classList.add('hidden');
-            document.getElementById('control-section').classList.remove('hidden');
-            cargarDatos();
+            document.getElementById('login-box').classList.add('hidden');
+            document.getElementById('panel-box').classList.remove('hidden');
+            startListening();
         } else {
-            document.getElementById('login-section').classList.remove('hidden');
-            document.getElementById('control-section').classList.add('hidden');
+            document.getElementById('login-box').classList.remove('hidden');
+            document.getElementById('panel-box').classList.add('hidden');
         }
     });
 
-    function login() {
-        const email = document.getElementById('email').value;
-        const pass = document.getElementById('password').value;
+    function handleLogin() {
+        const email = document.getElementById('user-email').value;
+        const pass = document.getElementById('user-pass').value;
+        const errorDiv = document.getElementById('error-msg');
+
         auth.signInWithEmailAndPassword(email, pass).catch(error => {
-            document.getElementById('login-error').innerText = "Acceso denegado: " + error.message;
+            errorDiv.innerText = "Error: Usuario o clave incorrectos";
         });
     }
 
-    function logout() { auth.signOut(); }
+    function handleLogout() { auth.signOut(); }
 
-    // 2. FUNCIONES DEL TIMBRE
-    function cargarDatos() {
+    function startListening() {
         db.ref('timbres').on('value', snapshot => {
-            const lista = document.getElementById('lista-toques');
-            lista.innerHTML = '';
+            const listDiv = document.getElementById('lista-toques');
+            listDiv.innerHTML = '';
+            if (!snapshot.exists()) {
+                listDiv.innerHTML = '<p style="color: #94a3b8; text-align: center;">No hay horarios</p>';
+                return;
+            }
             snapshot.forEach(child => {
                 const t = child.val();
-                lista.innerHTML += `
+                listDiv.innerHTML += `
                     <div class="toque-item">
-                        <span>${t.h}:${t.m}</span>
-                        <button onclick="eliminarToque('${child.key}')" style="color:red; border:none; background:none; cursor:pointer;">Eliminar</button>
+                        <span>${t.h.toString().padStart(2,'0')}:${t.m.toString().padStart(2,'0')}</span>
+                        <button onclick="deleteTime('${child.key}')" style="color:red; background:none; border:none; cursor:pointer;">✖</button>
                     </div>`;
             });
         });
     }
 
-    function agregarToque() {
-        const val = document.getElementById('nuevo-horario').value;
-        if (!val) return;
-        const [h, m] = val.split(':').map(Number);
+    function addTime() {
+        const timeVal = document.getElementById('nuevo-horario').value;
+        if (!timeVal) return;
+        const [h, m] = timeVal.split(':').map(Number);
         db.ref('timbres').push({ h, m });
     }
 
-    function toqueManual() {
-        db.ref('manual').set(true).then(() => {
-            setTimeout(() => db.ref('manual').set(false), 2000);
+    function deleteTime(id) {
+        if (confirm("¿Eliminar este horario?")) db.ref('timbres/' + id).remove();
+    }
+
+    function manualRing() {
+        db.ref('manual').set(true); // El ESP32 lo regresará a false
+    }
+
+    function syncRTC() {
+        const d = new Date();
+        db.ref('comando_hora').set({
+            h: d.getHours(), m: d.getMinutes(), s: d.getSeconds(),
+            d: d.getDate(), mes: d.getMonth() + 1, a: d.getFullYear()
         });
+        alert("Comando de hora enviado");
     }
-
-    function sincronizarHora() {
-        const n = new Date();
-        db.ref('comando_hora').set({ h: n.getHours(), m: n.getMinutes(), s: n.getSeconds(), d: n.getDate(), mes: n.getMonth()+1, a: n.getFullYear() });
-        alert("Hora enviada");
-    }
-
-    function eliminarToque(id) { if(confirm('¿Eliminar?')) db.ref('timbres/'+id).remove(); }
 </script>
 </body>
 </html>
