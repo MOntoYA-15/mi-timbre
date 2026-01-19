@@ -31,7 +31,7 @@
 
 <div class="container">
     <div id="login-box" class="card">
-        <h2>🔒 Acceso Seguro</h2>
+        <h2>Acceso</h2>
         <p style="text-align: center; color: #64748b;">Panel de Control Timbre</p>
         <div id="error-msg"></div>
         <input type="email" id="user-email" placeholder="Correo (admin@timbre.com)">
@@ -42,7 +42,7 @@
     <div id="panel-box" class="card hidden">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <button class="btn btn-logout" onclick="handleLogout()">Cerrar Sesión</button>
-            <span style="font-size: 0.8rem; color: #64748b;">Sistematimbre v2.0</span>
+            <span style="font-size: 0.8rem; color: #64748b;">Sistema timbre v4.8</span>
         </div>
 
         <button id="btn-maestro" class="btn" onclick="toggleMaestro()">
@@ -50,7 +50,7 @@
         </button>
 
         <div style="margin: 20px 0;">
-            <h4 style="margin-bottom: 10px;">⏰ Horarios Programados</h4>
+            <h4 style="margin-bottom: 10px;">Horarios Programados</h4>
             <div id="lista-toques" style="max-height: 180px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px;">
                 </div>
         </div>
@@ -59,8 +59,8 @@
         <button class="btn btn-green" onclick="addTime()">+ Agregar Nuevo Horario</button>
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
-            <button class="btn btn-red" onclick="manualRing()">🔔 Toque Manual</button>
-            <button class="btn btn-blue" style="background: #8b5cf6;" onclick="syncRTC()">🕒 Sincronizar</button>
+            <button class="btn btn-red" onclick="manualRing()">Toque Manual</button>
+            <button class="btn btn-blue" style="background: #8b5cf6;" onclick="syncRTC()">Sincronizar</button>
         </div>
     </div>
 </div>
@@ -168,3 +168,4 @@
 </script>
 </body>
 </html>
+
