@@ -7,33 +7,38 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
-        :root { --primary: #2563eb; --danger: #dc2626; --success: #16a34a; --bg: #f8fafc; }
+        :root { --primary: #2563eb; --danger: #dc2626; --success: #16a34a; --warning: #f59e0b; --dark: #1e293b; --bg: #f8fafc; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #1e293b; }
         .container { max-width: 600px; margin: auto; }
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
         h2 { margin-top: 0; font-size: 1.25rem; display: flex; align-items: center; gap: 10px; }
         
-        /* Lista de toques activos */
         .toque-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9; }
         .toque-info { font-size: 1.1rem; font-weight: 600; }
         
-        /* Controles */
         .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .btn { border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: opacity 0.2s; color: white; width: 100%; }
+        .btn { border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; color: white; width: 100%; text-align: center; }
         .btn-blue { background: var(--primary); }
         .btn-red { background: var(--danger); }
         .btn-green { background: var(--success); }
-        .btn-delete { background: none; color: var(--danger); font-size: 0.9rem; padding: 5px; }
-        .btn:active { opacity: 0.8; }
+        .btn-dark { background: var(--dark); }
+        .btn-delete { background: none; color: var(--danger); font-size: 0.9rem; padding: 5px; border:none; cursor:pointer; }
+        .btn:active { transform: scale(0.98); opacity: 0.9; }
 
         input[type="time"] { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; }
         .empty-state { text-align: center; color: #64748b; padding: 20px; }
+        
+        /* Estilo para el estado del sistema */
+        .status-banner { padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; }
+        .status-on { background: #dcfce7; color: #166534; border: 1px solid #16a34a; }
+        .status-off { background: #fee2e2; color: #991b1b; border: 1px solid #dc2626; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="card">
+        <div id="banner-estado" class="status-banner">Cargando estado...</div>
         <h2>🔔 Toques Programados</h2>
         <div id="lista-toques">
             <div class="empty-state">No hay horarios programados</div>
@@ -41,7 +46,12 @@
     </div>
 
     <div class="card">
-        <h2>⚙️ Configurar Nuevo Toque</h2>
+        <h2>⚙️ Configuración Global</h2>
+        <div style="margin-bottom: 15px;">
+            <button id="btn-maestro" class="btn" onclick="toggleEstadoMaestro()">Cargando...</button>
+        </div>
+        
+        <h2>➕ Agregar Nuevo Toque</h2>
         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
             <input type="time" id="nuevo-horario" style="flex-grow: 1;">
             <button class="btn btn-green" onclick="agregarToque()" style="width: auto;">+ Agregar</button>
@@ -59,7 +69,28 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Escuchar cambios en tiempo real
+    let sistemaActivo = true;
+
+    // 1. Escuchar el estado maestro del sistema
+    db.ref('estado_maestro').on('value', (snapshot) => {
+        sistemaActivo = snapshot.val() !== false; // Por defecto true si no existe
+        const btn = document.getElementById('btn-maestro');
+        const banner = document.getElementById('banner-estado');
+
+        if (sistemaActivo) {
+            btn.innerText = "⏸️ Desactivar Todos los Toques";
+            btn.className = "btn btn-dark";
+            banner.innerText = "✅ SISTEMA DE TOQUES ACTIVO";
+            banner.className = "status-banner status-on";
+        } else {
+            btn.innerText = "▶️ Reactivar Todos los Toques";
+            btn.className = "btn btn-green";
+            banner.innerText = "🚫 SISTEMA DE TOQUES PAUSADO";
+            banner.className = "status-banner status-off";
+        }
+    });
+
+    // 2. Escuchar lista de toques
     db.ref('timbres').on('value', (snapshot) => {
         const listaDiv = document.getElementById('lista-toques');
         const data = snapshot.val();
@@ -74,17 +105,24 @@
             const t = data[id];
             listaDiv.innerHTML += `
                 <div class="toque-item">
-                    <div class="toque-info">${t.h.toString().padStart(2,'0')}:${t.m.toString().padStart(2,'0')}</div>
+                    <div class="toque-info" style="color: ${sistemaActivo ? '#1e293b' : '#94a3b8'}">
+                        ${t.h.toString().padStart(2,'0')}:${t.m.toString().padStart(2,'0')}
+                    </div>
                     <button class="btn-delete" onclick="eliminarToque('${id}')">Eliminar</button>
                 </div>`;
         });
     });
+
+    function toggleEstadoMaestro() {
+        db.ref('estado_maestro').set(!sistemaActivo);
+    }
 
     function agregarToque() {
         const val = document.getElementById('nuevo-horario').value;
         if (!val) return;
         const [h, m] = val.split(':').map(Number);
         db.ref('timbres').push({ h, m, act: true });
+        document.getElementById('nuevo-horario').value = "";
     }
 
     function eliminarToque(id) {
@@ -107,7 +145,7 @@
             mes: ahora.getMonth() + 1,
             a: ahora.getFullYear()
         });
-        alert("Comando de actualización enviado al ESP32");
+        alert("Comando de actualización enviado");
     }
 </script>
 </body>
