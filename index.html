@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control - Acceso Protegido</title>
+    <title>Panel de Control - Timbre Inteligente</title>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
@@ -11,9 +11,9 @@
 
     <style>
         :root { --primary: #2563eb; --danger: #dc2626; --success: #16a34a; --bg: #f1f5f9; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
         .container { width: 100%; max-width: 450px; padding: 20px; }
-        .card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        .card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
         h2, h3 { margin-top: 0; color: #1e293b; text-align: center; }
         input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
         .btn { border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; color: white; width: 100%; transition: 0.3s; margin-top: 10px; }
@@ -22,42 +22,51 @@
         .btn-red { background: var(--danger); }
         .btn-logout { background: #64748b; font-size: 0.8rem; width: auto; padding: 5px 15px; }
         .hidden { display: none; }
-        .toque-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #f1f5f9; font-weight: bold; }
+        .toque-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 1.1rem; }
         #error-msg { color: var(--danger); font-size: 0.85rem; text-align: center; margin-bottom: 10px; }
+        .status-badge { text-align: center; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; color: white; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div id="login-box" class="card">
-        <h2>🔒 Timbre Inteligente</h2>
-        <p style="text-align: center; color: #64748b;">Ingrese credenciales de administrador</p>
+        <h2>🔒 Acceso Seguro</h2>
+        <p style="text-align: center; color: #64748b;">Panel de Control Timbre</p>
         <div id="error-msg"></div>
-        <input type="email" id="user-email" placeholder="Correo electrónico">
+        <input type="email" id="user-email" placeholder="Correo (admin@timbre.com)">
         <input type="password" id="user-pass" placeholder="Contraseña">
-        <button class="btn btn-blue" onclick="handleLogin()">Entrar al Panel</button>
+        <button class="btn btn-blue" onclick="handleLogin()">Iniciar Sesión</button>
     </div>
 
     <div id="panel-box" class="card hidden">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3>⚙️ Panel de Control</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <button class="btn btn-logout" onclick="handleLogout()">Cerrar Sesión</button>
+            <span style="font-size: 0.8rem; color: #64748b;">Sistematimbre v2.0</span>
         </div>
-        
-        <div id="lista-toques" style="margin: 20px 0; max-height: 200px; overflow-y: auto;">
-            </div>
 
-        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
-        
+        <button id="btn-maestro" class="btn" onclick="toggleMaestro()">
+            Verificando sistema...
+        </button>
+
+        <div style="margin: 20px 0;">
+            <h4 style="margin-bottom: 10px;">⏰ Horarios Programados</h4>
+            <div id="lista-toques" style="max-height: 180px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px;">
+                </div>
+        </div>
+
         <input type="time" id="nuevo-horario">
-        <button class="btn btn-green" onclick="addTime()">+ Agregar Horario</button>
-        <button class="btn btn-red" onclick="manualRing()">🔔 Toque Manual</button>
-        <button class="btn btn-blue" style="background: #8b5cf6;" onclick="syncRTC()">🕒 Sincronizar Reloj</button>
+        <button class="btn btn-green" onclick="addTime()">+ Agregar Nuevo Horario</button>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+            <button class="btn btn-red" onclick="manualRing()">🔔 Toque Manual</button>
+            <button class="btn btn-blue" style="background: #8b5cf6;" onclick="syncRTC()">🕒 Sincronizar</button>
+        </div>
     </div>
 </div>
 
 <script>
-    // TUS CREDENCIALES REALES
+    // CONFIGURACIÓN DE TU PROYECTO
     const firebaseConfig = {
         apiKey: "AIzaSyAbTb-cXeJmmPprRaVTqSyBiEyoEGv93f0",
         authDomain: "sistematimbre.firebaseapp.com",
@@ -69,7 +78,9 @@
     const auth = firebase.auth();
     const db = firebase.database();
 
-    // Vigilar el estado de la sesión
+    let estadoMaestro = true;
+
+    // --- GESTIÓN DE SESIÓN ---
     auth.onAuthStateChanged(user => {
         if (user) {
             document.getElementById('login-box').classList.add('hidden');
@@ -85,20 +96,34 @@
         const email = document.getElementById('user-email').value;
         const pass = document.getElementById('user-pass').value;
         const errorDiv = document.getElementById('error-msg');
-
-        auth.signInWithEmailAndPassword(email, pass).catch(error => {
-            errorDiv.innerText = "Error: Usuario o clave incorrectos";
+        auth.signInWithEmailAndPassword(email, pass).catch(err => {
+            errorDiv.innerText = "Acceso denegado: Datos incorrectos";
         });
     }
 
     function handleLogout() { auth.signOut(); }
 
+    // --- LÓGICA DEL PANEL ---
     function startListening() {
+        // Escuchar Estado Maestro (Activado/Desactivado)
+        db.ref('estado_maestro').on('value', snapshot => {
+            estadoMaestro = snapshot.val() !== false; // true por defecto
+            const btn = document.getElementById('btn-maestro');
+            if (estadoMaestro) {
+                btn.innerText = "🟢 SISTEMA: ACTIVADO";
+                btn.className = "btn btn-green";
+            } else {
+                btn.innerText = "🔴 SISTEMA: PAUSADO";
+                btn.className = "btn btn-red";
+            }
+        });
+
+        // Escuchar Horarios
         db.ref('timbres').on('value', snapshot => {
             const listDiv = document.getElementById('lista-toques');
             listDiv.innerHTML = '';
             if (!snapshot.exists()) {
-                listDiv.innerHTML = '<p style="color: #94a3b8; text-align: center;">No hay horarios</p>';
+                listDiv.innerHTML = '<p style="text-align:center; color:#94a3b8; padding:10px;">Sin horarios</p>';
                 return;
             }
             snapshot.forEach(child => {
@@ -106,16 +131,20 @@
                 listDiv.innerHTML += `
                     <div class="toque-item">
                         <span>${t.h.toString().padStart(2,'0')}:${t.m.toString().padStart(2,'0')}</span>
-                        <button onclick="deleteTime('${child.key}')" style="color:red; background:none; border:none; cursor:pointer;">✖</button>
+                        <button onclick="deleteTime('${child.key}')" style="color:#ef4444; background:none; border:none; cursor:pointer; font-weight:bold;">ELIMINAR</button>
                     </div>`;
             });
         });
     }
 
+    function toggleMaestro() {
+        db.ref('estado_maestro').set(!estadoMaestro);
+    }
+
     function addTime() {
-        const timeVal = document.getElementById('nuevo-horario').value;
-        if (!timeVal) return;
-        const [h, m] = timeVal.split(':').map(Number);
+        const val = document.getElementById('nuevo-horario').value;
+        if (!val) return;
+        const [h, m] = val.split(':').map(Number);
         db.ref('timbres').push({ h, m });
     }
 
@@ -124,7 +153,8 @@
     }
 
     function manualRing() {
-        db.ref('manual').set(true); // El ESP32 lo regresará a false
+        db.ref('manual').set(true); 
+        // El ESP32 lo regresará a false automáticamente al sonar
     }
 
     function syncRTC() {
@@ -133,7 +163,7 @@
             h: d.getHours(), m: d.getMinutes(), s: d.getSeconds(),
             d: d.getDate(), mes: d.getMonth() + 1, a: d.getFullYear()
         });
-        alert("Comando de hora enviado");
+        alert("Hora del sistema actualizada con éxito.");
     }
 </script>
 </body>
