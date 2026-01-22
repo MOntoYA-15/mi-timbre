@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control - Timbre</title>
+    <title>Panel de Control - Timbre Lugar A</title>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
@@ -24,7 +24,6 @@
         .hidden { display: none; }
         .toque-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 1.1rem; }
         #error-msg { color: var(--danger); font-size: 0.85rem; text-align: center; margin-bottom: 10px; }
-        .status-badge { text-align: center; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; color: white; }
     </style>
 </head>
 <body>
@@ -42,7 +41,7 @@
     <div id="panel-box" class="card hidden">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <button class="btn btn-logout" onclick="handleLogout()">Cerrar Sesión</button>
-            <span style="font-size: 0.8rem; color: #64748b;">Sistema timbre v4.8</span>
+            <span style="font-size: 0.8rem; color: #64748b;">Sistema Timbre Lugar A</span>
         </div>
 
         <button id="btn-maestro" class="btn" onclick="toggleMaestro()">
@@ -51,7 +50,7 @@
 
         <div style="margin: 20px 0;">
             <h4 style="margin-bottom: 10px;">Horarios Programados</h4>
-            <div id="lista-toques" style="max-height: 180px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px;">
+            <div id="lista-toques" style="max-height: 250px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px;">
                 </div>
         </div>
 
@@ -60,13 +59,13 @@
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
             <button class="btn btn-red" onclick="manualRing()">Toque Manual</button>
-            <button class="btn btn-blue" style="background: #8b5cf6;" onclick="syncRTC()">Sincronizar</button>
+            <button class="btn btn-blue" style="background: #8b5cf6;" onclick="syncSystem()">Sincronizar</button>
         </div>
     </div>
 </div>
 
 <script>
-    // CONFIGURACIÓN DE TU PROYECTO
+    // --- CONFIGURACIÓN FIREBASE ---
     const firebaseConfig = {
         apiKey: "AIzaSyAbTb-cXeJmmPprRaVTqSyBiEyoEGv93f0",
         authDomain: "sistematimbre.firebaseapp.com",
@@ -97,7 +96,7 @@
         const pass = document.getElementById('user-pass').value;
         const errorDiv = document.getElementById('error-msg');
         auth.signInWithEmailAndPassword(email, pass).catch(err => {
-            errorDiv.innerText = "Acceso denegado: Datos incorrectos";
+            errorDiv.innerText = "Error: " + err.message;
         });
     }
 
@@ -105,9 +104,9 @@
 
     // --- LÓGICA DEL PANEL ---
     function startListening() {
-        // Escuchar Estado Maestro (Activado/Desactivado)
+        // 1. Escuchar Estado Maestro
         db.ref('estado_maestro').on('value', snapshot => {
-            estadoMaestro = snapshot.val() !== false; // true por defecto
+            estadoMaestro = snapshot.val() !== false;
             const btn = document.getElementById('btn-maestro');
             if (estadoMaestro) {
                 btn.innerText = "🟢 SISTEMA: ACTIVADO";
@@ -118,7 +117,7 @@
             }
         });
 
-        // Escuchar Horarios
+        // 2. Escuchar Horarios de la lista "timbres"
         db.ref('timbres').on('value', snapshot => {
             const listDiv = document.getElementById('lista-toques');
             listDiv.innerHTML = '';
@@ -145,28 +144,40 @@
         const val = document.getElementById('nuevo-horario').value;
         if (!val) return;
         const [h, m] = val.split(':').map(Number);
-        db.ref('timbres').push({ h, m });
+        
+        // Guardamos y disparamos señal de sincronización
+        db.ref('timbres').push({ h, m }).then(() => {
+            forceESP32Update();
+            document.getElementById('nuevo-horario').value = "";
+        });
     }
 
     function deleteTime(id) {
-        if (confirm("¿Eliminar este horario?")) db.ref('timbres/' + id).remove();
+        if (confirm("¿Eliminar este horario?")) {
+            db.ref('timbres/' + id).remove().then(() => {
+                forceESP32Update();
+            });
+        }
     }
 
     function manualRing() {
+        // El ESP32 revisa este nodo cada 3 segundos
         db.ref('manual').set(true); 
-        // El ESP32 lo regresará a false automáticamente al sonar
     }
 
-    function syncRTC() {
+    // Esta función crea un nodo que el ESP32 detecta para actualizarse YA
+    function forceESP32Update() {
         const d = new Date();
         db.ref('comando_hora').set({
-            h: d.getHours(), m: d.getMinutes(), s: d.getSeconds(),
-            d: d.getDate(), mes: d.getMonth() + 1, a: d.getFullYear()
+            timestamp: d.getTime(),
+            info: "update_requested"
         });
-        alert("Hora del sistema actualizada con éxito.");
+    }
+
+    function syncSystem() {
+        forceESP32Update();
+        alert("Comando de sincronización enviado al ESP32.");
     }
 </script>
 </body>
 </html>
-
-
