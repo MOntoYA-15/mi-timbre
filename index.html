@@ -41,7 +41,7 @@
     <div id="panel-box" class="card hidden">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <button class="btn btn-logout" onclick="handleLogout()">Cerrar Sesión</button>
-            <span style="font-size: 0.8rem; color: #64748b;">Sistema Timbre v8.4</span>
+            <span style="font-size: 0.8rem; color: #64748b;">Sistema Timbre v8.5</span>
         </div>
 
         <button id="btn-maestro" class="btn" onclick="toggleMaestro()">
@@ -145,38 +145,45 @@
         if (!val) return;
         const [h, m] = val.split(':').map(Number);
         
-        // Guardamos y disparamos señal de sincronización
+        // Guardamos en Firebase (el ESP32 no lo verá hasta que demos Sincronizar)
         db.ref('timbres').push({ h, m }).then(() => {
-            forceESP32Update();
             document.getElementById('nuevo-horario').value = "";
         });
     }
 
     function deleteTime(id) {
         if (confirm("¿Eliminar este horario?")) {
-            db.ref('timbres/' + id).remove().then(() => {
-                forceESP32Update();
-            });
+            db.ref('timbres/' + id).remove();
         }
     }
 
     function manualRing() {
-        // El ESP32 revisa este nodo cada 3 segundos
         db.ref('manual').set(true); 
     }
 
-    // Esta función crea un nodo que el ESP32 detecta para actualizarse YA
-    function forceESP32Update() {
-        const d = new Date();
-        db.ref('comando_hora').set({
-            timestamp: d.getTime(),
-            info: "update_requested"
-        });
-    }
-
+    // --- FUNCIÓN DE SINCRONIZACIÓN ACTUALIZADA ---
     function syncSystem() {
-        forceESP32Update();
-        alert("Comando de sincronización enviado al ESP32.");
+        const d = new Date();
+        
+        // Preparamos los datos de la hora actual
+        const datosHora = {
+            h: d.getHours(),
+            m: d.getMinutes(),
+            s: d.getSeconds(),
+            d: d.getDate(),
+            mes: d.getMonth() + 1,
+            a: d.getFullYear()
+        };
+
+        // Activamos 'comando_sync' para que el ESP32 abra la descarga pesada
+        db.ref('/').update({
+            "comando_hora": datosHora,
+            "comando_sync": true
+        }).then(() => {
+            alert("Orden de sincronización enviada. El timbre actualizará horarios y hora en breve.");
+        }).catch(err => {
+            alert("Error al sincronizar: " + err.message);
+        });
     }
 </script>
 </body>
