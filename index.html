@@ -28,6 +28,7 @@
         .btn-action { background: none; border: none; cursor: pointer; font-weight: bold; font-size: 0.9rem; padding: 5px; }
         .edit-input { width: 100px; padding: 5px; margin: 0; font-size: 1rem; }
         
+        #status-sync { font-size: 0.75rem; text-align: center; color: #64748b; margin-top: 5px; }
         #error-msg { color: var(--danger); font-size: 0.85rem; text-align: center; margin-bottom: 10px; }
     </style>
 </head>
@@ -46,7 +47,7 @@
     <div id="panel-box" class="card hidden">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <button class="btn btn-logout" onclick="handleLogout()">Cerrar Sesión</button>
-            <span style="font-size: 0.8rem; color: #64748b;">Sistema Timbre v8.5</span>
+            <span style="font-size: 0.8rem; color: #64748b;">Sistema Timbre v8.6</span>
         </div>
 
         <button id="btn-maestro" class="btn" onclick="toggleMaestro()">Verificando sistema...</button>
@@ -63,6 +64,7 @@
             <button class="btn btn-red" onclick="manualRing()">Toque Manual</button>
             <button class="btn btn-blue" style="background: #8b5cf6;" onclick="syncSystem()">Sincronizar</button>
         </div>
+        <div id="status-sync">Verificando última sincronización...</div>
     </div>
 </div>
 
@@ -84,6 +86,7 @@
             document.getElementById('login-box').classList.add('hidden');
             document.getElementById('panel-box').classList.remove('hidden');
             startListening();
+            checkAutoSync(); // Iniciar revisión automática al entrar
         } else {
             document.getElementById('login-box').classList.remove('hidden');
             document.getElementById('panel-box').classList.add('hidden');
@@ -130,7 +133,23 @@
         });
     }
 
-    // Muestra el input para editar dentro de la misma lista
+    // --- LÓGICA DE AUTO-SINCRONIZACIÓN (CADA 24 HORAS) ---
+    function checkAutoSync() {
+        const lastSync = localStorage.getItem('lastSyncTimestamp');
+        const now = new Date().getTime();
+        const interval = 24 * 60 * 60 * 1000; // 24 horas en milisegundos
+
+        if (!lastSync || (now - lastSync) > interval) {
+            console.log("Auto-sincronización necesaria...");
+            forceESP32Update();
+            localStorage.setItem('lastSyncTimestamp', now);
+            document.getElementById('status-sync').innerText = "Sistema auto-sincronizado hoy.";
+        } else {
+            const horasRestantes = Math.round((interval - (now - lastSync)) / (1000 * 60 * 60));
+            document.getElementById('status-sync').innerText = "Sincronización al día. Prox. en " + horasRestantes + "h aprox.";
+        }
+    }
+
     function showEditForm(id, currentTime) {
         const item = document.getElementById(`item-${id}`);
         item.innerHTML = `
@@ -142,15 +161,12 @@
         `;
     }
 
-    // Guarda el cambio y notifica al ESP32
     function saveEdit(id) {
         const newVal = document.getElementById(`edit-${id}`).value;
         if (!newVal) return;
         const [h, m] = newVal.split(':').map(Number);
-        
         db.ref('timbres/' + id).update({ h, m }).then(() => {
             forceESP32Update();
-            // startListening se encargará de refrescar la UI automáticamente por el listener .on('value')
         });
     }
 
@@ -180,6 +196,8 @@
             timestamp: d.getTime(),
             info: "update_requested"
         });
+        // Actualizar marca de tiempo local para que sepa que ya se hizo
+        localStorage.setItem('lastSyncTimestamp', new Date().getTime());
     }
 
     function syncSystem() {
@@ -189,4 +207,3 @@
 </script>
 </body>
 </html>
-
