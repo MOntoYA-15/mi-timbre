@@ -3,32 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control - Timbre</title>
+    <title>Panel de Control - Timbre Inteligente</title>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
     <style>
-        :root { --primary: #2563eb; --danger: #dc2626; --success: #16a34a; --bg: #f1f5f9; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+        :root { 
+            --primary: #2563eb; 
+            --danger: #dc2626; 
+            --success: #16a34a; 
+            --bg: #f1f5f9; 
+            --warning: #f59e0b;
+            --slate: #64748b;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: var(--bg); 
+            margin: 0; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            min-height: 100vh; 
+        }
+
         .container { width: 100%; max-width: 450px; padding: 20px; }
-        .card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
+        
+        .card { 
+            background: white; 
+            padding: 25px; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1); 
+        }
+
         h2, h4 { margin-top: 0; color: #1e293b; text-align: center; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
-        .btn { border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; color: white; width: 100%; transition: 0.3s; margin-top: 10px; }
+
+        /* Estado de Conexión */
+        #online-status {
+            text-align: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            margin-bottom: 15px;
+            padding: 8px;
+            border-radius: 8px;
+            transition: 0.3s;
+        }
+        .online { color: var(--success); background: #dcfce7; border: 1px solid #bbf7d0; }
+        .offline { color: var(--danger); background: #fee2e2; border: 1px solid #fecaca; }
+
+        input { 
+            width: 100%; 
+            padding: 12px; 
+            margin: 10px 0; 
+            border: 1px solid #cbd5e1; 
+            border-radius: 8px; 
+            box-sizing: border-box; 
+            font-size: 1rem; 
+        }
+
+        .btn { 
+            border: none; 
+            padding: 12px; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-weight: 600; 
+            color: white; 
+            width: 100%; 
+            transition: 0.2s; 
+            margin-top: 10px; 
+        }
+        .btn:active { transform: scale(0.98); }
+
         .btn-blue { background: var(--primary); }
         .btn-green { background: var(--success); }
         .btn-red { background: var(--danger); }
-        .btn-logout { background: #64748b; font-size: 0.8rem; width: auto; padding: 5px 15px; }
+        .btn-logout { background: var(--slate); font-size: 0.8rem; width: auto; padding: 5px 15px; }
+
         .hidden { display: none; }
         
-        .toque-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 1.1rem; }
-        .actions { display: flex; gap: 10px; }
-        .btn-action { background: none; border: none; cursor: pointer; font-weight: bold; font-size: 0.9rem; padding: 5px; }
-        .edit-input { width: 100px; padding: 5px; margin: 0; font-size: 1rem; }
+        /* Lista de horarios */
+        .toque-item { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 12px; 
+            border-bottom: 1px solid #f1f5f9; 
+            font-size: 1.1rem; 
+        }
+        .toque-item:last-child { border-bottom: none; }
         
-        #status-sync { font-size: 0.75rem; text-align: center; color: #64748b; margin-top: 5px; }
+        .actions { display: flex; gap: 10px; }
+        .btn-action { background: none; border: none; cursor: pointer; font-weight: bold; font-size: 0.85rem; padding: 5px; }
+        
+        #status-sync { font-size: 0.75rem; text-align: center; color: var(--slate); margin-top: 10px; }
         #error-msg { color: var(--danger); font-size: 0.85rem; text-align: center; margin-bottom: 10px; }
     </style>
 </head>
@@ -37,38 +106,43 @@
 <div class="container">
     <div id="login-box" class="card">
         <h2>Acceso</h2>
-        <p style="text-align: center; color: #64748b;">Panel de Control Timbre</p>
+        <p style="text-align: center; color: var(--slate);">Panel de Control Timbre</p>
         <div id="error-msg"></div>
-        <input type="email" id="user-email" placeholder="Correo (admin@timbre.com)">
+        <input type="email" id="user-email" placeholder="Correo electrónico">
         <input type="password" id="user-pass" placeholder="Contraseña">
         <button class="btn btn-blue" onclick="handleLogin()">Iniciar Sesión</button>
     </div>
 
     <div id="panel-box" class="card hidden">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <button class="btn btn-logout" onclick="handleLogout()">Cerrar Sesión</button>
-            <span style="font-size: 0.8rem; color: #64748b;">Sistema Timbre v8.6</span>
+            <span style="font-size: 0.8rem; color: var(--slate);">v8.7 Stable</span>
         </div>
 
-        <button id="btn-maestro" class="btn" onclick="toggleMaestro()">Verificando sistema...</button>
+        <div id="online-status" class="offline">VERIFICANDO DISPOSITIVO...</div>
+
+        <button id="btn-maestro" class="btn" onclick="toggleMaestro()">Cargando estado...</button>
 
         <div style="margin: 20px 0;">
-            <h4 style="margin-bottom: 10px;">Horarios Programados</h4>
-            <div id="lista-toques" style="max-height: 250px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px;"></div>
+            <h4>Horarios Programados</h4>
+            <div id="lista-toques" style="max-height: 200px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px;">
+                </div>
         </div>
 
         <input type="time" id="nuevo-horario">
-        <button class="btn btn-green" onclick="addTime()">+ Agregar Nuevo Horario</button>
+        <button class="btn btn-green" onclick="addTime()">+ Agregar Horario</button>
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
             <button class="btn btn-red" onclick="manualRing()">Toque Manual</button>
             <button class="btn btn-blue" style="background: #8b5cf6;" onclick="syncSystem()">Sincronizar</button>
         </div>
-        <div id="status-sync">Verificando última sincronización...</div>
+        
+        <div id="status-sync">Sincronización pendiente...</div>
     </div>
 </div>
 
 <script>
+    // --- CONFIGURACIÓN DE TU PROYECTO ---
     const firebaseConfig = {
         apiKey: "AIzaSyAbTb-cXeJmmPprRaVTqSyBiEyoEGv93f0",
         authDomain: "sistematimbre.firebaseapp.com",
@@ -81,12 +155,13 @@
     const db = firebase.database();
     let estadoMaestro = true;
 
+    // Manejador de Sesión
     auth.onAuthStateChanged(user => {
         if (user) {
             document.getElementById('login-box').classList.add('hidden');
             document.getElementById('panel-box').classList.remove('hidden');
             startListening();
-            checkAutoSync(); // Iniciar revisión automática al entrar
+            checkAutoSync();
         } else {
             document.getElementById('login-box').classList.remove('hidden');
             document.getElementById('panel-box').classList.add('hidden');
@@ -97,25 +172,27 @@
         const email = document.getElementById('user-email').value;
         const pass = document.getElementById('user-pass').value;
         auth.signInWithEmailAndPassword(email, pass).catch(err => {
-            document.getElementById('error-msg').innerText = "Error: " + err.message;
+            document.getElementById('error-msg').innerText = "Credenciales incorrectas";
         });
     }
 
     function handleLogout() { auth.signOut(); }
 
     function startListening() {
+        // 1. Escuchar Estado Maestro (Pausa/Activa)
         db.ref('estado_maestro').on('value', snapshot => {
             estadoMaestro = snapshot.val() !== false;
             const btn = document.getElementById('btn-maestro');
-            btn.innerText = estadoMaestro ? "🟢 SISTEMA: ACTIVADO" : "🔴 SISTEMA: PAUSADO";
+            btn.innerText = estadoMaestro ? "🟢 SISTEMA: TRABAJANDO" : "🔴 SISTEMA: EN PAUSA";
             btn.className = estadoMaestro ? "btn btn-green" : "btn btn-red";
         });
 
+        // 2. Escuchar Lista de Horarios
         db.ref('timbres').on('value', snapshot => {
             const listDiv = document.getElementById('lista-toques');
             listDiv.innerHTML = '';
             if (!snapshot.exists()) {
-                listDiv.innerHTML = '<p style="text-align:center; color:#94a3b8; padding:10px;">Sin horarios</p>';
+                listDiv.innerHTML = '<p style="text-align:center; color:#94a3b8; padding:10px;">No hay horarios</p>';
                 return;
             }
             snapshot.forEach(child => {
@@ -123,53 +200,45 @@
                 const timeStr = `${t.h.toString().padStart(2,'0')}:${t.m.toString().padStart(2,'0')}`;
                 listDiv.innerHTML += `
                     <div class="toque-item" id="item-${child.key}">
-                        <span id="txt-${child.key}">${timeStr}</span>
+                        <span><b>${timeStr}</b></span>
                         <div class="actions">
-                            <button class="btn-action" style="color:#2563eb;" onclick="showEditForm('${child.key}', '${timeStr}')">EDITAR</button>
-                            <button class="btn-action" style="color:#ef4444;" onclick="deleteTime('${child.key}')">ELIMINAR</button>
+                            <button class="btn-action" style="color:var(--primary);" onclick="showEditForm('${child.key}', '${timeStr}')">EDITAR</button>
+                            <button class="btn-action" style="color:var(--danger);" onclick="deleteTime('${child.key}')">BORRAR</button>
                         </div>
                     </div>`;
             });
         });
-    }
 
-    // --- LÓGICA DE AUTO-SINCRONIZACIÓN (CADA 24 HORAS) ---
-    function checkAutoSync() {
-        const lastSync = localStorage.getItem('lastSyncTimestamp');
-        const now = new Date().getTime();
-        const interval = 24 * 60 * 60 * 1000; // 24 horas en milisegundos
+        // 3. LÓGICA DE DETECCIÓN EN LÍNEA (Heartbeat)
+        db.ref('ultima_conexion').on('value', snapshot => {
+            const statusDiv = document.getElementById('online-status');
+            const lastTime = snapshot.val();
+            
+            if (!lastTime) {
+                statusDiv.innerText = "ESPERANDO REPORTE...";
+                return;
+            }
 
-        if (!lastSync || (now - lastSync) > interval) {
-            console.log("Auto-sincronización necesaria...");
-            forceESP32Update();
-            localStorage.setItem('lastSyncTimestamp', now);
-            document.getElementById('status-sync').innerText = "Sistema auto-sincronizado hoy.";
-        } else {
-            const horasRestantes = Math.round((interval - (now - lastSync)) / (1000 * 60 * 60));
-            document.getElementById('status-sync').innerText = "Sincronización al día. Prox. en " + horasRestantes + "h aprox.";
-        }
-    }
+            const updateStatus = () => {
+                const ahora = Date.now();
+                const diff = (ahora - lastTime) / 1000;
 
-    function showEditForm(id, currentTime) {
-        const item = document.getElementById(`item-${id}`);
-        item.innerHTML = `
-            <input type="time" id="edit-${id}" class="edit-input" value="${currentTime}">
-            <div class="actions">
-                <button class="btn-action" style="color:#16a34a;" onclick="saveEdit('${id}')">GUARDAR</button>
-                <button class="btn-action" style="color:#64748b;" onclick="startListening()">CANCELAR</button>
-            </div>
-        `;
-    }
+                if (diff < 40) { // Margen de 40 seg (el ESP consulta cada 11s)
+                    statusDiv.innerText = "📡 DISPOSITIVO: EN LÍNEA";
+                    statusDiv.className = "online";
+                } else {
+                    statusDiv.innerText = "🔌 DISPOSITIVO: FUERA DE LÍNEA";
+                    statusDiv.className = "offline";
+                }
+            };
 
-    function saveEdit(id) {
-        const newVal = document.getElementById(`edit-${id}`).value;
-        if (!newVal) return;
-        const [h, m] = newVal.split(':').map(Number);
-        db.ref('timbres/' + id).update({ h, m }).then(() => {
-            forceESP32Update();
+            updateStatus();
+            if (window.timerStatus) clearInterval(window.timerStatus);
+            window.timerStatus = setInterval(updateStatus, 10000);
         });
     }
 
+    // Funciones de Control
     function toggleMaestro() { db.ref('estado_maestro').set(!estadoMaestro); }
 
     function addTime() {
@@ -188,21 +257,46 @@
         }
     }
 
-    function manualRing() { db.ref('manual').set(true); }
+    function showEditForm(id, currentTime) {
+        const item = document.getElementById(`item-${id}`);
+        item.innerHTML = `
+            <input type="time" id="edit-${id}" style="width:120px; margin:0;" value="${currentTime}">
+            <div class="actions">
+                <button class="btn-action" style="color:var(--success);" onclick="saveEdit('${id}')">OK</button>
+                <button class="btn-action" style="color:var(--slate);" onclick="startListening()">X</button>
+            </div>`;
+    }
 
-    function forceESP32Update() {
-        const d = new Date();
-        db.ref('comando_hora').set({
-            timestamp: d.getTime(),
-            info: "update_requested"
-        });
-        // Actualizar marca de tiempo local para que sepa que ya se hizo
-        localStorage.setItem('lastSyncTimestamp', new Date().getTime());
+    function saveEdit(id) {
+        const newVal = document.getElementById(`edit-${id}`).value;
+        const [h, m] = newVal.split(':').map(Number);
+        db.ref('timbres/' + id).update({ h, m }).then(() => forceESP32Update());
+    }
+
+    function manualRing() { 
+        db.ref('manual').set(true); 
+        alert("Orden de toque enviada");
     }
 
     function syncSystem() {
         forceESP32Update();
-        alert("Comando de sincronización enviado al ESP32.");
+        alert("Reloj sincronizado con el servidor.");
+    }
+
+    function forceESP32Update() {
+        db.ref('comando_hora').set({
+            timestamp: Date.now(),
+            info: "web_update"
+        });
+        localStorage.setItem('lastSyncTimestamp', Date.now());
+    }
+
+    function checkAutoSync() {
+        const last = localStorage.getItem('lastSyncTimestamp');
+        const now = Date.now();
+        if (!last || (now - last) > 86400000) {
+            forceESP32Update();
+        }
     }
 </script>
 </body>
