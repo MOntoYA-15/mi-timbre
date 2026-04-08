@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control - Timbre Inteligente</title>
+    <title>Panel de Control - Timbre Inteligente v8.8</title>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
@@ -15,12 +15,11 @@
             --danger: #dc2626; 
             --success: #16a34a; 
             --bg: #f1f5f9; 
-            --warning: #f59e0b;
             --slate: #64748b;
         }
 
         body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
             background: var(--bg); 
             margin: 0; 
             display: flex; 
@@ -46,7 +45,7 @@
             font-weight: 700;
             font-size: 0.85rem;
             margin-bottom: 15px;
-            padding: 8px;
+            padding: 10px;
             border-radius: 8px;
             transition: 0.3s;
         }
@@ -74,7 +73,7 @@
             transition: 0.2s; 
             margin-top: 10px; 
         }
-        .btn:active { transform: scale(0.98); }
+        .btn:active { transform: scale(0.97); }
 
         .btn-blue { background: var(--primary); }
         .btn-green { background: var(--success); }
@@ -90,14 +89,12 @@
             align-items: center; 
             padding: 12px; 
             border-bottom: 1px solid #f1f5f9; 
-            font-size: 1.1rem; 
         }
-        .toque-item:last-child { border-bottom: none; }
         
-        .actions { display: flex; gap: 10px; }
-        .btn-action { background: none; border: none; cursor: pointer; font-weight: bold; font-size: 0.85rem; padding: 5px; }
+        .actions { display: flex; gap: 8px; }
+        .btn-action { background: none; border: none; cursor: pointer; font-weight: bold; font-size: 0.8rem; padding: 5px; }
         
-        #status-sync { font-size: 0.75rem; text-align: center; color: var(--slate); margin-top: 10px; }
+        #status-sync { font-size: 0.7rem; text-align: center; color: var(--slate); margin-top: 12px; }
         #error-msg { color: var(--danger); font-size: 0.85rem; text-align: center; margin-bottom: 10px; }
     </style>
 </head>
@@ -105,44 +102,42 @@
 
 <div class="container">
     <div id="login-box" class="card">
-        <h2>Acceso</h2>
-        <p style="text-align: center; color: var(--slate);">Panel de Control Timbre</p>
+        <h2>Acceso Timbre</h2>
         <div id="error-msg"></div>
-        <input type="email" id="user-email" placeholder="Correo electrónico">
+        <input type="email" id="user-email" placeholder="Correo">
         <input type="password" id="user-pass" placeholder="Contraseña">
-        <button class="btn btn-blue" onclick="handleLogin()">Iniciar Sesión</button>
+        <button class="btn btn-blue" onclick="handleLogin()">Entrar</button>
     </div>
 
     <div id="panel-box" class="card hidden">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <button class="btn btn-logout" onclick="handleLogout()">Cerrar Sesión</button>
-            <span style="font-size: 0.8rem; color: var(--slate);">v8.7 </span>
+            <span style="font-size: 0.8rem; color: var(--slate);">Sistema v8.8</span>
         </div>
 
-        <div id="online-status" class="offline">VERIFICANDO DISPOSITIVO...</div>
+        <div id="online-status" class="offline">VERIFICANDO ESP32...</div>
 
-        <button id="btn-maestro" class="btn" onclick="toggleMaestro()">Cargando estado...</button>
+        <button id="btn-maestro" class="btn" onclick="toggleMaestro()">Cargando...</button>
 
         <div style="margin: 20px 0;">
-            <h4>Horarios Programados</h4>
-            <div id="lista-toques" style="max-height: 200px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px;">
-                </div>
+            <h4>Horarios Guardados</h4>
+            <div id="lista-toques" style="max-height: 220px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px;"></div>
         </div>
 
         <input type="time" id="nuevo-horario">
-        <button class="btn btn-green" onclick="addTime()">+ Agregar Horario</button>
+        <button class="btn btn-green" onclick="addTime()">+ Guardar Horario</button>
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
             <button class="btn btn-red" onclick="manualRing()">Toque Manual</button>
             <button class="btn btn-blue" style="background: #8b5cf6;" onclick="syncSystem()">Sincronizar</button>
         </div>
         
-        <div id="status-sync">Sincronización pendiente...</div>
+        <div id="status-sync">Esperando acción...</div>
     </div>
 </div>
 
 <script>
-    // --- CONFIGURACIÓN DE TU PROYECTO ---
+    // CONFIGURACIÓN FIREBASE
     const firebaseConfig = {
         apiKey: "AIzaSyAbTb-cXeJmmPprRaVTqSyBiEyoEGv93f0",
         authDomain: "sistematimbre.firebaseapp.com",
@@ -155,13 +150,11 @@
     const db = firebase.database();
     let estadoMaestro = true;
 
-    // Manejador de Sesión
     auth.onAuthStateChanged(user => {
         if (user) {
             document.getElementById('login-box').classList.add('hidden');
             document.getElementById('panel-box').classList.remove('hidden');
             startListening();
-            checkAutoSync();
         } else {
             document.getElementById('login-box').classList.remove('hidden');
             document.getElementById('panel-box').classList.add('hidden');
@@ -172,22 +165,22 @@
         const email = document.getElementById('user-email').value;
         const pass = document.getElementById('user-pass').value;
         auth.signInWithEmailAndPassword(email, pass).catch(err => {
-            document.getElementById('error-msg').innerText = "Credenciales incorrectas";
+            document.getElementById('error-msg').innerText = "Error de acceso";
         });
     }
 
     function handleLogout() { auth.signOut(); }
 
     function startListening() {
-        // 1. Escuchar Estado Maestro (Pausa/Activa)
+        // Escuchar Estado Maestro
         db.ref('estado_maestro').on('value', snapshot => {
             estadoMaestro = snapshot.val() !== false;
             const btn = document.getElementById('btn-maestro');
-            btn.innerText = estadoMaestro ? "🟢 SISTEMA: TRABAJANDO" : "🔴 SISTEMA: EN PAUSA";
+            btn.innerText = estadoMaestro ? "🟢 SISTEMA ACTIVADO" : "🔴 SISTEMA PAUSADO";
             btn.className = estadoMaestro ? "btn btn-green" : "btn btn-red";
         });
 
-        // 2. Escuchar Lista de Horarios
+        // Escuchar Horarios
         db.ref('timbres').on('value', snapshot => {
             const listDiv = document.getElementById('lista-toques');
             listDiv.innerHTML = '';
@@ -197,7 +190,7 @@
             }
             snapshot.forEach(child => {
                 const t = child.val();
-                const timeStr = `${t.h.toString().padStart(2,'0')}:${t.m.toString().padStart(2,'0')}`;
+                const timeStr = `${String(t.h).padStart(2,'0')}:${String(t.m).padStart(2,'0')}`;
                 listDiv.innerHTML += `
                     <div class="toque-item" id="item-${child.key}">
                         <span><b>${timeStr}</b></span>
@@ -209,21 +202,13 @@
             });
         });
 
-        // 3. LÓGICA DE DETECCIÓN EN LÍNEA (Heartbeat)
+        // Heartbeat (Detección de ESP32 en línea)
         db.ref('ultima_conexion').on('value', snapshot => {
             const statusDiv = document.getElementById('online-status');
             const lastTime = snapshot.val();
-            
-            if (!lastTime) {
-                statusDiv.innerText = "ESPERANDO REPORTE...";
-                return;
-            }
-
-            const updateStatus = () => {
-                const ahora = Date.now();
-                const diff = (ahora - lastTime) / 1000;
-
-                if (diff < 40) { // Margen de 40 seg (el ESP consulta cada 11s)
+            const updateUI = () => {
+                const diff = (Date.now() - lastTime) / 1000;
+                if (diff < 40) {
                     statusDiv.innerText = "📡 DISPOSITIVO: EN LÍNEA";
                     statusDiv.className = "online";
                 } else {
@@ -231,14 +216,26 @@
                     statusDiv.className = "offline";
                 }
             };
-
-            updateStatus();
-            if (window.timerStatus) clearInterval(window.timerStatus);
-            window.timerStatus = setInterval(updateStatus, 10000);
+            if (lastTime) updateUI();
+            if (window.hbTimer) clearInterval(window.hbTimer);
+            window.hbTimer = setInterval(updateUI, 10000);
         });
     }
 
-    // Funciones de Control
+    function forceESP32Update() {
+        const ahora = Date.now();
+        // 1. Sincronizar Reloj
+        db.ref('comando_hora').set({ timestamp: ahora });
+        
+        // 2. ACTIVAR SEÑAL DE ALERTA PARA EL ESP32
+        db.ref('update_pending').set(true);
+        
+        document.getElementById('status-sync').innerText = "Sincronizando con ESP32...";
+        setTimeout(() => {
+            document.getElementById('status-sync').innerText = "Cambios enviados.";
+        }, 3000);
+    }
+
     function toggleMaestro() { db.ref('estado_maestro').set(!estadoMaestro); }
 
     function addTime() {
@@ -252,7 +249,7 @@
     }
 
     function deleteTime(id) {
-        if (confirm("¿Eliminar este horario?")) {
+        if (confirm("¿Borrar horario?")) {
             db.ref('timbres/' + id).remove().then(() => forceESP32Update());
         }
     }
@@ -269,34 +266,18 @@
 
     function saveEdit(id) {
         const newVal = document.getElementById(`edit-${id}`).value;
+        if (!newVal) return;
         const [h, m] = newVal.split(':').map(Number);
         db.ref('timbres/' + id).update({ h, m }).then(() => forceESP32Update());
     }
 
     function manualRing() { 
         db.ref('manual').set(true); 
-        alert("Orden de toque enviada");
+        alert("Toque manual enviado");
     }
 
     function syncSystem() {
         forceESP32Update();
-        alert("Reloj sincronizado con el servidor.");
-    }
-
-    function forceESP32Update() {
-        db.ref('comando_hora').set({
-            timestamp: Date.now(),
-            info: "web_update"
-        });
-        localStorage.setItem('lastSyncTimestamp', Date.now());
-    }
-
-    function checkAutoSync() {
-        const last = localStorage.getItem('lastSyncTimestamp');
-        const now = Date.now();
-        if (!last || (now - last) > 86400000) {
-            forceESP32Update();
-        }
     }
 </script>
 </body>
