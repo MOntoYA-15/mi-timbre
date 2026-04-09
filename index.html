@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control - Timbre Inteligente v8.8</title>
+    <title>Panel de Control - Timbre v8.8</title>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
@@ -176,7 +176,7 @@
         db.ref('estado_maestro').on('value', snapshot => {
             estadoMaestro = snapshot.val() !== false;
             const btn = document.getElementById('btn-maestro');
-            btn.innerText = estadoMaestro ? "🟢 SISTEMA ACTIVADO" : "🔴 SISTEMA PAUSADO";
+            btn.innerText = estadoMaestro ? "SISTEMA ACTIVADO" : "SISTEMA PAUSADO";
             btn.className = estadoMaestro ? "btn btn-green" : "btn btn-red";
         });
 
@@ -209,7 +209,7 @@
             const updateUI = () => {
                 const diff = (Date.now() - lastTime) / 1000;
                 if (diff < 40) {
-                    statusDiv.innerText = "📡 DISPOSITIVO: EN LÍNEA";
+                    statusDiv.innerText = "DISPOSITIVO: EN LÍNEA";
                     statusDiv.className = "online";
                 } else {
                     statusDiv.innerText = "🔌 DISPOSITIVO: FUERA DE LÍNEA";
