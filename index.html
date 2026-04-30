@@ -3,282 +3,726 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control - Timbre v8.8</title>
-    
+    <title>Sistema Timbre</title>
+
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+
     <style>
-        :root { 
-            --primary: #2563eb; 
-            --danger: #dc2626; 
-            --success: #16a34a; 
-            --bg: #f1f5f9; 
-            --slate: #64748b;
+        :root {
+            --bg:       #0d0f14;
+            --panel:    #13161e;
+            --border:   #1e2330;
+            --accent:   #f0c040;
+            --accent2:  #4ade80;
+            --danger:   #f87171;
+            --muted:    #4a5568;
+            --text:     #e2e8f0;
+            --textdim:  #718096;
+            --online:   #4ade80;
+            --offline:  #f87171;
+            --pause:    #fb923c;
         }
 
-        body { 
-            font-family: 'Segoe UI', system-ui, sans-serif; 
-            background: var(--bg); 
-            margin: 0; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            min-height: 100vh; 
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Syne', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
         }
 
-        .container { width: 100%; max-width: 450px; padding: 20px; }
-        
-        .card { 
-            background: white; 
-            padding: 25px; 
-            border-radius: 16px; 
-            box-shadow: 0 10px 15px rgba(0,0,0,0.1); 
+        /* ── FONDO CON GRID ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(240,192,64,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(240,192,64,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
         }
 
-        h2, h4 { margin-top: 0; color: #1e293b; text-align: center; }
+        .wrap {
+            width: 100%;
+            max-width: 480px;
+            position: relative;
+            z-index: 1;
+        }
 
-        /* Estado de Conexión */
-        #online-status {
+        /* ── HEADER ── */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .logo {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--accent);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+        .logo span { color: var(--textdim); font-weight: 400; }
+        .version { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--muted); }
+
+        /* ── CARD BASE ── */
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 12px;
+        }
+
+        /* ── LOGIN ── */
+        #login-box label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--textdim);
+            margin: 14px 0 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        #login-box input {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 14px;
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        #login-box input:focus { border-color: var(--accent); }
+        .login-title {
             text-align: center;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--accent);
+            margin-bottom: 4px;
+        }
+        .login-sub {
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--textdim);
+            margin-bottom: 8px;
+        }
+        #error-msg {
+            color: var(--danger);
+            font-size: 0.8rem;
+            text-align: center;
+            margin: 8px 0;
+            min-height: 20px;
+        }
+
+        /* ── BOTONES ── */
+        .btn {
+            width: 100%;
+            border: none;
+            padding: 13px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Syne', sans-serif;
             font-weight: 700;
             font-size: 0.85rem;
-            margin-bottom: 15px;
-            padding: 10px;
-            border-radius: 8px;
-            transition: 0.3s;
-        }
-        .online { color: var(--success); background: #dcfce7; border: 1px solid #bbf7d0; }
-        .offline { color: var(--danger); background: #fee2e2; border: 1px solid #fecaca; }
-
-        input { 
-            width: 100%; 
-            padding: 12px; 
-            margin: 10px 0; 
-            border: 1px solid #cbd5e1; 
-            border-radius: 8px; 
-            box-sizing: border-box; 
-            font-size: 1rem; 
-        }
-
-        .btn { 
-            border: none; 
-            padding: 12px; 
-            border-radius: 8px; 
-            cursor: pointer; 
-            font-weight: 600; 
-            color: white; 
-            width: 100%; 
-            transition: 0.2s; 
-            margin-top: 10px; 
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            transition: all 0.15s;
+            margin-top: 10px;
         }
         .btn:active { transform: scale(0.97); }
+        .btn-yellow  { background: var(--accent);  color: #0d0f14; }
+        .btn-green   { background: #14532d; color: var(--accent2); border: 1px solid #166534; }
+        .btn-red     { background: #450a0a; color: var(--danger);  border: 1px solid #7f1d1d; }
+        .btn-purple  { background: #2e1065; color: #c4b5fd; border: 1px solid #4c1d95; }
+        .btn-ghost   { background: transparent; color: var(--textdim); border: 1px solid var(--border); }
+        .btn-sm      { padding: 7px 14px; font-size: 0.75rem; width: auto; margin-top: 0; }
 
-        .btn-blue { background: var(--primary); }
-        .btn-green { background: var(--success); }
-        .btn-red { background: var(--danger); }
-        .btn-logout { background: var(--slate); font-size: 0.8rem; width: auto; padding: 5px 15px; }
+        /* ── STATUS ESP32 ── */
+        #device-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 12px;
+            border: 1px solid transparent;
+            transition: all 0.3s;
+        }
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .st-online  { background: #052e16; border-color: #166534; color: var(--online); }
+        .st-online  .status-dot { background: var(--online); box-shadow: 0 0 8px var(--online); animation: pulse 2s infinite; }
+        .st-offline { background: #1c0606; border-color: #7f1d1d; color: var(--offline); }
+        .st-offline .status-dot { background: var(--offline); }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+        /* ── MAESTRO TOGGLE ── */
+        #btn-maestro {
+            font-size: 1rem;
+            padding: 16px;
+            letter-spacing: 0.08em;
+        }
+
+        /* ── SECCIÓN HORARIOS ── */
+        .section-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--textdim);
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .section-title b { color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+
+        #lista-toques {
+            max-height: 230px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+        .toque-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 11px 14px;
+            border-bottom: 1px solid var(--border);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            transition: background 0.15s;
+        }
+        .toque-item:last-child { border-bottom: none; }
+        .toque-item:hover { background: rgba(240,192,64,0.04); }
+        .toque-time { color: var(--accent); font-weight: 700; letter-spacing: 0.05em; }
+        .toque-actions button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background 0.15s;
+        }
+        .btn-edit  { color: #60a5fa; } .btn-edit:hover  { background: rgba(96,165,250,0.1); }
+        .btn-del   { color: var(--danger); } .btn-del:hover { background: rgba(248,113,113,0.1); }
+        .no-toques {
+            text-align: center;
+            color: var(--muted);
+            padding: 30px;
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ── AGREGAR HORARIO ── */
+        .add-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .add-row input[type="time"] {
+            flex: 1;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 11px 14px;
+            color: var(--accent);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            font-weight: 700;
+            outline: none;
+        }
+        .add-row input[type="time"]:focus { border-color: var(--accent); }
+        .add-row .btn { flex: 0 0 auto; width: auto; padding: 11px 18px; }
+
+        /* ── ACCIONES GRID ── */
+        .actions-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        /* ── BLUETOOTH PANEL ── */
+        #bt-panel { display: none; }
+        #bt-panel input {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 11px 14px;
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            margin: 6px 0;
+            outline: none;
+        }
+        #bt-panel input:focus { border-color: #a78bfa; }
+
+        /* ── STATUS BAR ── */
+        #status-bar {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            color: var(--muted);
+            text-align: center;
+            margin-top: 6px;
+            min-height: 18px;
+            transition: color 0.3s;
+        }
+        #status-bar.ok    { color: var(--accent2); }
+        #status-bar.err   { color: var(--danger);  }
+        #status-bar.busy  { color: var(--accent);  }
 
         .hidden { display: none; }
-        
-        /* Lista de horarios */
-        .toque-item { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            padding: 12px; 
-            border-bottom: 1px solid #f1f5f9; 
+
+        /* ── FOOTER ── */
+        .top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
         }
-        
-        .actions { display: flex; gap: 8px; }
-        .btn-action { background: none; border: none; cursor: pointer; font-weight: bold; font-size: 0.8rem; padding: 5px; }
-        
-        #status-sync { font-size: 0.7rem; text-align: center; color: var(--slate); margin-top: 12px; }
-        #error-msg { color: var(--danger); font-size: 0.85rem; text-align: center; margin-bottom: 10px; }
+        .user-info { font-size: 0.75rem; color: var(--muted); }
+        #hora-local {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--textdim);
+        }
+
+        /* ── EDIT INLINE ── */
+        .edit-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .edit-row input[type="time"] {
+            background: var(--bg);
+            border: 1px solid var(--accent);
+            border-radius: 6px;
+            padding: 6px 10px;
+            color: var(--accent);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            outline: none;
+            width: 110px;
+        }
     </style>
 </head>
 <body>
+<div class="wrap">
 
-<div class="container">
+    <!-- ── HEADER ── -->
+    <div class="header">
+        <div class="logo">Timbre<span>·Auto</span></div>
+        <div class="version">v2.0</div>
+    </div>
+
+    <!-- ══════════════════════════════════ -->
+    <!--  LOGIN                            -->
+    <!-- ══════════════════════════════════ -->
     <div id="login-box" class="card">
-        <h2>Acceso Timbre</h2>
+        <div class="login-title">Acceso</div>
+        <div class="login-sub">Sistema de Control de Timbre</div>
         <div id="error-msg"></div>
-        <input type="email" id="user-email" placeholder="Correo">
-        <input type="password" id="user-pass" placeholder="Contraseña">
-        <button class="btn btn-blue" onclick="handleLogin()">Entrar</button>
+        <label>Correo</label>
+        <input type="email" id="user-email" placeholder="usuario@correo.com" autocomplete="email">
+        <label>Contraseña</label>
+        <input type="password" id="user-pass" placeholder="••••••••" autocomplete="current-password">
+        <button class="btn btn-yellow" onclick="handleLogin()">Entrar →</button>
     </div>
 
-    <div id="panel-box" class="card hidden">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <button class="btn btn-logout" onclick="handleLogout()">Cerrar Sesión</button>
-            <span style="font-size: 0.8rem; color: var(--slate);">Sistema v8.8</span>
+    <!-- ══════════════════════════════════ -->
+    <!--  PANEL PRINCIPAL                  -->
+    <!-- ══════════════════════════════════ -->
+    <div id="panel-box" class="hidden">
+
+        <!-- Top row -->
+        <div class="top-row">
+            <span class="user-info" id="user-email-display"></span>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <span id="hora-local"></span>
+                <button class="btn btn-ghost btn-sm" onclick="handleLogout()">Salir</button>
+            </div>
         </div>
 
-        <div id="online-status" class="offline">VERIFICANDO ESP32...</div>
-
-        <button id="btn-maestro" class="btn" onclick="toggleMaestro()">Cargando...</button>
-
-        <div style="margin: 20px 0;">
-            <h4>Horarios Guardados</h4>
-            <div id="lista-toques" style="max-height: 220px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px;"></div>
+        <!-- Estado ESP32 -->
+        <div id="device-status" class="st-offline">
+            <div class="status-dot"></div>
+            <span id="device-status-text">Verificando ESP32...</span>
         </div>
 
-        <input type="time" id="nuevo-horario">
-        <button class="btn btn-green" onclick="addTime()">+ Guardar Horario</button>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
-            <button class="btn btn-red" onclick="manualRing()">Toque Manual</button>
-            <button class="btn btn-blue" style="background: #8b5cf6;" onclick="syncSystem()">Sincronizar</button>
+        <!-- Botón maestro -->
+        <div class="card" style="padding:16px;">
+            <button id="btn-maestro" class="btn btn-green" onclick="toggleMaestro()">Cargando…</button>
         </div>
-        
-        <div id="status-sync">Esperando acción...</div>
+
+        <!-- Horarios -->
+        <div class="card">
+            <div class="section-title">
+                Horarios programados
+                <b id="contador-horarios">0</b>
+            </div>
+            <div id="lista-toques"></div>
+
+            <div class="add-row" style="margin-top:12px;">
+                <input type="time" id="nuevo-horario">
+                <button class="btn btn-yellow btn-sm" onclick="addTime()">+ Agregar</button>
+            </div>
+        </div>
+
+        <!-- Acciones -->
+        <div class="card" style="padding:16px;">
+            <div class="actions-grid">
+                <button class="btn btn-red" onclick="manualRing()">⚡ Toque Manual</button>
+                <button class="btn btn-purple" onclick="syncSystem()">⟳ Sincronizar</button>
+            </div>
+            <!-- Sincronizar hora explícitamente -->
+            <button class="btn btn-ghost" style="margin-top:8px;" onclick="syncHora()">🕐 Actualizar Hora del ESP32</button>
+        </div>
+
+        <!-- Bluetooth helper -->
+        <div class="card" style="padding:16px;">
+            <div class="section-title" style="cursor:pointer;" onclick="toggleBT()">
+                Configurar WiFi por Bluetooth <span id="bt-toggle-icon">▼</span>
+            </div>
+            <div id="bt-panel">
+                <p style="font-size:0.78rem;color:var(--textdim);margin-bottom:10px;">
+                    Si el ESP32 perdió conexión, conecta tu dispositivo por Bluetooth a <b style="color:var(--accent)">Timbre-ESP32</b> y envía las credenciales con el botón de abajo.
+                </p>
+                <input type="text"     id="bt-ssid" placeholder="Nombre de la red WiFi (SSID)">
+                <input type="password" id="bt-pass" placeholder="Contraseña del WiFi">
+                <button class="btn btn-purple" style="margin-top:6px;" onclick="enviarCredencialesBT()">
+                    Enviar por Bluetooth
+                </button>
+                <div id="bt-status" style="font-size:0.75rem;color:var(--muted);margin-top:8px;font-family:'JetBrains Mono',monospace;"></div>
+            </div>
+        </div>
+
+        <div id="status-bar">Listo.</div>
     </div>
+
 </div>
 
 <script>
-    // CONFIGURACIÓN FIREBASE
-    const firebaseConfig = {
-        apiKey: "AIzaSyAbTb-cXeJmmPprRaVTqSyBiEyoEGv93f0",
-        authDomain: "sistematimbre.firebaseapp.com",
-        databaseURL: "https://sistematimbre-default-rtdb.firebaseio.com",
-        projectId: "sistematimbre"
-    };
+// ══════════════════════════════════════════════
+//  FIREBASE CONFIG
+// ══════════════════════════════════════════════
+const firebaseConfig = {
+    apiKey:      "AIzaSyAbTb-cXeJmmPprRaVTqSyBiEyoEGv93f0",
+    authDomain:  "sistematimbre.firebaseapp.com",
+    databaseURL: "https://sistematimbre-default-rtdb.firebaseio.com",
+    projectId:   "sistematimbre"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.database();
 
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.database();
-    let estadoMaestro = true;
+let estadoMaestro = true;
+let hbTimer = null;
 
-    auth.onAuthStateChanged(user => {
-        if (user) {
-            document.getElementById('login-box').classList.add('hidden');
-            document.getElementById('panel-box').classList.remove('hidden');
-            startListening();
+// ── Reloj local ──────────────────────────────
+function actualizarReloj() {
+    const ahora = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    document.getElementById('hora-local').textContent =
+        `${pad(ahora.getHours())}:${pad(ahora.getMinutes())}:${pad(ahora.getSeconds())}`;
+}
+setInterval(actualizarReloj, 1000);
+actualizarReloj();
+
+// ── Sincronización automática de hora (cada 24h) ─
+function programarSyncHora() {
+    const ahora = new Date();
+    // Calcular ms hasta la próxima medianoche (hora local)
+    const mañana = new Date(ahora);
+    mañana.setDate(mañana.getDate() + 1);
+    mañana.setHours(0, 0, 30, 0); // 00:00:30 del día siguiente
+    const msHastaMedianoche = mañana - ahora;
+
+    setTimeout(() => {
+        subirTimestampHora();
+        // Repetir cada 24h
+        setInterval(subirTimestampHora, 24 * 60 * 60 * 1000);
+    }, msHastaMedianoche);
+
+    console.log(`Sync de hora programado en ${Math.round(msHastaMedianoche/3600000)} horas.`);
+}
+
+function subirTimestampHora() {
+    db.ref('hora_unix_ms').set(Date.now())
+      .then(() => console.log('Hora sincronizada con Firebase:', new Date().toLocaleString()))
+      .catch(e => console.error('Error subiendo hora:', e));
+}
+
+// ══════════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════════
+auth.onAuthStateChanged(user => {
+    if (user) {
+        document.getElementById('login-box').classList.add('hidden');
+        document.getElementById('panel-box').classList.remove('hidden');
+        document.getElementById('user-email-display').textContent = user.email;
+        startListening();
+        // Subir hora al conectar y programar sync diario
+        subirTimestampHora();
+        programarSyncHora();
+    } else {
+        document.getElementById('login-box').classList.remove('hidden');
+        document.getElementById('panel-box').classList.add('hidden');
+    }
+});
+
+function handleLogin() {
+    const email = document.getElementById('user-email').value.trim();
+    const pass  = document.getElementById('user-pass').value;
+    document.getElementById('error-msg').textContent = '';
+    auth.signInWithEmailAndPassword(email, pass).catch(() => {
+        document.getElementById('error-msg').textContent = 'Correo o contraseña incorrectos.';
+    });
+}
+
+function handleLogout() { auth.signOut(); }
+
+// ══════════════════════════════════════════════
+//  LISTENERS EN TIEMPO REAL
+// ══════════════════════════════════════════════
+function startListening() {
+    // Estado maestro
+    db.ref('estado_maestro').on('value', snap => {
+        estadoMaestro = snap.val() !== false;
+        const btn = document.getElementById('btn-maestro');
+        if (estadoMaestro) {
+            btn.textContent = '✔ SISTEMA ACTIVADO';
+            btn.className   = 'btn btn-green';
         } else {
-            document.getElementById('login-box').classList.remove('hidden');
-            document.getElementById('panel-box').classList.add('hidden');
+            btn.textContent = '⏸ SISTEMA PAUSADO';
+            btn.className   = 'btn btn-red';
         }
     });
 
-    function handleLogin() {
-        const email = document.getElementById('user-email').value;
-        const pass = document.getElementById('user-pass').value;
-        auth.signInWithEmailAndPassword(email, pass).catch(err => {
-            document.getElementById('error-msg').innerText = "Error de acceso";
-        });
-    }
+    // Horarios
+    db.ref('timbres').on('value', snap => {
+        const listDiv = document.getElementById('lista-toques');
+        listDiv.innerHTML = '';
+        let count = 0;
+        if (!snap.exists()) {
+            listDiv.innerHTML = '<div class="no-toques">Sin horarios registrados</div>';
+        } else {
+            // Ordenar por hora
+            const items = [];
+            snap.forEach(child => {
+                const t = child.val();
+                items.push({ key: child.key, h: t.h, m: t.m });
+            });
+            items.sort((a,b) => a.h*60+a.m - (b.h*60+b.m));
+            items.forEach(t => {
+                const ts = `${String(t.h).padStart(2,'0')}:${String(t.m).padStart(2,'0')}`;
+                const div = document.createElement('div');
+                div.className = 'toque-item';
+                div.id = `item-${t.key}`;
+                div.innerHTML = `
+                    <span class="toque-time">${ts}</span>
+                    <div class="toque-actions">
+                        <button class="btn-edit" onclick="showEditForm('${t.key}','${ts}')">Editar</button>
+                        <button class="btn-del"  onclick="deleteTime('${t.key}')">Borrar</button>
+                    </div>`;
+                listDiv.appendChild(div);
+                count++;
+            });
+        }
+        document.getElementById('contador-horarios').textContent = count;
+    });
 
-    function handleLogout() { auth.signOut(); }
-
-    function startListening() {
-        // Escuchar Estado Maestro
-        db.ref('estado_maestro').on('value', snapshot => {
-            estadoMaestro = snapshot.val() !== false;
-            const btn = document.getElementById('btn-maestro');
-            btn.innerText = estadoMaestro ? "SISTEMA ACTIVADO" : "SISTEMA PAUSADO";
-            btn.className = estadoMaestro ? "btn btn-green" : "btn btn-red";
-        });
-
-        // Escuchar Horarios
-        db.ref('timbres').on('value', snapshot => {
-            const listDiv = document.getElementById('lista-toques');
-            listDiv.innerHTML = '';
-            if (!snapshot.exists()) {
-                listDiv.innerHTML = '<p style="text-align:center; color:#94a3b8; padding:10px;">No hay horarios</p>';
+    // Heartbeat / estado del dispositivo
+    db.ref('ultima_conexion').on('value', snap => {
+        const statusDiv  = document.getElementById('device-status');
+        const statusText = document.getElementById('device-status-text');
+        const lastTime   = snap.val();
+        const update = () => {
+            if (!lastTime) {
+                statusDiv.className  = 'st-offline';
+                statusText.textContent = 'Sin datos del dispositivo';
                 return;
             }
-            snapshot.forEach(child => {
-                const t = child.val();
-                const timeStr = `${String(t.h).padStart(2,'0')}:${String(t.m).padStart(2,'0')}`;
-                listDiv.innerHTML += `
-                    <div class="toque-item" id="item-${child.key}">
-                        <span><b>${timeStr}</b></span>
-                        <div class="actions">
-                            <button class="btn-action" style="color:var(--primary);" onclick="showEditForm('${child.key}', '${timeStr}')">EDITAR</button>
-                            <button class="btn-action" style="color:var(--danger);" onclick="deleteTime('${child.key}')">BORRAR</button>
-                        </div>
-                    </div>`;
-            });
+            const diff = (Date.now() - lastTime) / 1000;
+            if (diff < 40) {
+                statusDiv.className = 'st-online';
+                const hace = Math.round(diff);
+                statusText.textContent = `ESP32 EN LÍNEA — hace ${hace}s`;
+            } else {
+                statusDiv.className = 'st-offline';
+                const min = Math.round(diff / 60);
+                statusText.textContent = `FUERA DE LÍNEA — última vez hace ${min} min`;
+            }
+        };
+        update();
+        if (hbTimer) clearInterval(hbTimer);
+        hbTimer = setInterval(update, 5000);
+    });
+}
+
+// ══════════════════════════════════════════════
+//  ACCIONES
+// ══════════════════════════════════════════════
+function setStatus(msg, tipo = '') {
+    const el = document.getElementById('status-bar');
+    el.textContent = msg;
+    el.className   = tipo;
+    if (tipo === 'ok') setTimeout(() => { el.textContent = 'Listo.'; el.className = ''; }, 4000);
+}
+
+function toggleMaestro() {
+    db.ref('estado_maestro').set(!estadoMaestro).catch(() => setStatus('Error al cambiar estado', 'err'));
+}
+
+function addTime() {
+    const val = document.getElementById('nuevo-horario').value;
+    if (!val) { setStatus('Selecciona una hora primero', 'err'); return; }
+    const [h, m] = val.split(':').map(Number);
+    setStatus('Guardando horario...', 'busy');
+    db.ref('timbres').push({ h, m }).then(() => {
+        triggerSync();
+        document.getElementById('nuevo-horario').value = '';
+        setStatus('Horario guardado ✓', 'ok');
+    }).catch(() => setStatus('Error al guardar', 'err'));
+}
+
+function deleteTime(id) {
+    if (!confirm('¿Borrar este horario?')) return;
+    setStatus('Borrando...', 'busy');
+    db.ref('timbres/' + id).remove().then(() => {
+        triggerSync();
+        setStatus('Horario eliminado ✓', 'ok');
+    }).catch(() => setStatus('Error al borrar', 'err'));
+}
+
+function showEditForm(id, currentTime) {
+    const item = document.getElementById(`item-${id}`);
+    item.innerHTML = `
+        <div class="edit-row">
+            <input type="time" id="edit-${id}" value="${currentTime}">
+            <button class="btn-edit" onclick="saveEdit('${id}')">OK</button>
+            <button class="btn-del"  onclick="cancelEdit()">✕</button>
+        </div>`;
+}
+
+function cancelEdit() { /* el listener de DB reconstruye la lista */ }
+
+function saveEdit(id) {
+    const newVal = document.getElementById(`edit-${id}`)?.value;
+    if (!newVal) return;
+    const [h, m] = newVal.split(':').map(Number);
+    setStatus('Actualizando...', 'busy');
+    db.ref('timbres/' + id).update({ h, m }).then(() => {
+        triggerSync();
+        setStatus('Horario actualizado ✓', 'ok');
+    }).catch(() => setStatus('Error al actualizar', 'err'));
+}
+
+function manualRing() {
+    setStatus('Enviando toque manual...', 'busy');
+    db.ref('manual').set(true).then(() => setStatus('¡Toque enviado! ✓', 'ok'))
+                              .catch(() => setStatus('Error al enviar', 'err'));
+}
+
+// Sincronizar: sube hora + ordena sync de horarios al ESP32
+function syncSystem() {
+    setStatus('Sincronizando...', 'busy');
+    const batch = {};
+    batch['hora_unix_ms']    = Date.now();  // Hora para el RTC
+    batch['comando_sync']    = true;        // Bajar horarios de nuevo
+    batch['comando_sync_hora'] = true;      // Forzar actualización de RTC
+    db.ref('/').update(batch)
+      .then(() => setStatus('Sincronización enviada ✓', 'ok'))
+      .catch(() => setStatus('Error de sincronización', 'err'));
+}
+
+// Solo sincronizar hora del RTC
+function syncHora() {
+    setStatus('Actualizando hora...', 'busy');
+    db.ref('hora_unix_ms').set(Date.now()).then(() =>
+        db.ref('comando_sync_hora').set(true)
+    ).then(() => setStatus('Hora actualizada ✓', 'ok'))
+     .catch(() => setStatus('Error al actualizar hora', 'err'));
+}
+
+// Disparar sync de horarios en el ESP32 (sin hora)
+function triggerSync() {
+    db.ref('hora_unix_ms').set(Date.now());
+    db.ref('comando_sync').set(true);
+}
+
+// ══════════════════════════════════════════════
+//  BLUETOOTH HELPER (Web Bluetooth API)
+// ══════════════════════════════════════════════
+function toggleBT() {
+    const panel = document.getElementById('bt-panel');
+    const icon  = document.getElementById('bt-toggle-icon');
+    if (panel.style.display === 'block') {
+        panel.style.display = 'none';
+        icon.textContent = '▼';
+    } else {
+        panel.style.display = 'block';
+        icon.textContent = '▲';
+    }
+}
+
+async function enviarCredencialesBT() {
+    const ssid = document.getElementById('bt-ssid').value.trim();
+    const pass = document.getElementById('bt-pass').value;
+    const btStatus = document.getElementById('bt-status');
+
+    if (!ssid) { btStatus.textContent = 'ERROR: Ingresa el nombre de la red.'; return; }
+    if (!navigator.bluetooth) {
+        btStatus.textContent = 'Tu navegador no soporta Web Bluetooth. Usa Chrome en Android/PC.';
+        return;
+    }
+
+    try {
+        btStatus.textContent = 'Buscando ESP32 por Bluetooth...';
+        const device = await navigator.bluetooth.requestDevice({
+            filters: [{ name: 'Timbre-ESP32' }],
+            optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
         });
+        btStatus.textContent = 'Conectando...';
+        const server  = await device.gatt.connect();
+        const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
+        const char    = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
 
-        // Heartbeat (Detección de ESP32 en línea)
-        db.ref('ultima_conexion').on('value', snapshot => {
-            const statusDiv = document.getElementById('online-status');
-            const lastTime = snapshot.val();
-            const updateUI = () => {
-                const diff = (Date.now() - lastTime) / 1000;
-                if (diff < 40) {
-                    statusDiv.innerText = "DISPOSITIVO: EN LÍNEA";
-                    statusDiv.className = "online";
-                } else {
-                    statusDiv.innerText = "🔌 DISPOSITIVO: FUERA DE LÍNEA";
-                    statusDiv.className = "offline";
-                }
-            };
-            if (lastTime) updateUI();
-            if (window.hbTimer) clearInterval(window.hbTimer);
-            window.hbTimer = setInterval(updateUI, 10000);
-        });
+        const mensaje  = `${ssid}|${pass}\n`;
+        const encoder  = new TextEncoder();
+        await char.writeValue(encoder.encode(mensaje));
+
+        btStatus.textContent = `✓ Credenciales enviadas: ${ssid} | (contraseña oculta)`;
+        setTimeout(() => device.gatt.disconnect(), 3000);
+    } catch(e) {
+        btStatus.textContent = 'No se pudo conectar por Bluetooth: ' + e.message;
+        console.error('BT Error:', e);
     }
-
-    function forceESP32Update() {
-        const ahora = Date.now();
-        // 1. Sincronizar Reloj
-        db.ref('comando_hora').set({ timestamp: ahora });
-        
-        // 2. ACTIVAR SEÑAL DE ALERTA PARA EL ESP32
-        db.ref('update_pending').set(true);
-        
-        document.getElementById('status-sync').innerText = "Sincronizando con ESP32...";
-        setTimeout(() => {
-            document.getElementById('status-sync').innerText = "Cambios enviados.";
-        }, 3000);
-    }
-
-    function toggleMaestro() { db.ref('estado_maestro').set(!estadoMaestro); }
-
-    function addTime() {
-        const val = document.getElementById('nuevo-horario').value;
-        if (!val) return;
-        const [h, m] = val.split(':').map(Number);
-        db.ref('timbres').push({ h, m }).then(() => {
-            forceESP32Update();
-            document.getElementById('nuevo-horario').value = "";
-        });
-    }
-
-    function deleteTime(id) {
-        if (confirm("¿Borrar horario?")) {
-            db.ref('timbres/' + id).remove().then(() => forceESP32Update());
-        }
-    }
-
-    function showEditForm(id, currentTime) {
-        const item = document.getElementById(`item-${id}`);
-        item.innerHTML = `
-            <input type="time" id="edit-${id}" style="width:120px; margin:0;" value="${currentTime}">
-            <div class="actions">
-                <button class="btn-action" style="color:var(--success);" onclick="saveEdit('${id}')">OK</button>
-                <button class="btn-action" style="color:var(--slate);" onclick="startListening()">X</button>
-            </div>`;
-    }
-
-    function saveEdit(id) {
-        const newVal = document.getElementById(`edit-${id}`).value;
-        if (!newVal) return;
-        const [h, m] = newVal.split(':').map(Number);
-        db.ref('timbres/' + id).update({ h, m }).then(() => forceESP32Update());
-    }
-
-    function manualRing() { 
-        db.ref('manual').set(true); 
-        alert("Toque manual enviado");
-    }
-
-    function syncSystem() {
-        forceESP32Update();
-    }
+}
 </script>
 </body>
 </html>
