@@ -1,335 +1,196 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema Timbre</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timbre·Auto v3.1</title>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg:       #0d0f14;
+    --panel:    #13161e;
+    --border:   #1e2330;
+    --accent:   #f0c040;
+    --accent2:  #4ade80;
+    --danger:   #f87171;
+    --muted:    #4a5568;
+    --text:     #e2e8f0;
+    --textdim:  #718096;
+    --online:   #4ade80;
+    --offline:  #f87171;
+    --purple:   #a78bfa;
+    --blue:     #60a5fa;
+    --orange:   #fb923c;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 20px;
+}
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(240,192,64,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(240,192,64,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+}
+.wrap { width: 100%; max-width: 520px; position: relative; z-index: 1; }
 
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+/* ── HEADER ── */
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.logo { font-size: 1.1rem; font-weight: 800; color: var(--accent); letter-spacing: .1em; text-transform: uppercase; }
+.logo span { color: var(--textdim); font-weight: 400; }
+.version { font-family: 'JetBrains Mono', monospace; font-size: .7rem; color: var(--muted); }
 
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+/* ── CARD ── */
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 12px; }
+.hidden { display: none !important; }
 
-    <style>
-        :root {
-            --bg:       #0d0f14;
-            --panel:    #13161e;
-            --border:   #1e2330;
-            --accent:   #f0c040;
-            --accent2:  #4ade80;
-            --danger:   #f87171;
-            --muted:    #4a5568;
-            --text:     #e2e8f0;
-            --textdim:  #718096;
-            --online:   #4ade80;
-            --offline:  #f87171;
-            --pause:    #fb923c;
-        }
+/* ── LOGIN ── */
+#login-box label { display: block; font-size: .75rem; color: var(--textdim); margin: 14px 0 6px; text-transform: uppercase; letter-spacing: .05em; }
+#login-box input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: .9rem; outline: none; transition: border-color .2s; }
+#login-box input:focus { border-color: var(--accent); }
+.login-title { text-align: center; font-size: 1.5rem; font-weight: 800; color: var(--accent); margin-bottom: 4px; }
+.login-sub { text-align: center; font-size: .8rem; color: var(--textdim); margin-bottom: 8px; }
+#error-msg { color: var(--danger); font-size: .8rem; text-align: center; margin: 8px 0; min-height: 20px; }
+.forgot-link { text-align: center; margin-top: 10px; font-size: .78rem; color: var(--textdim); cursor: pointer; text-decoration: underline; }
+.forgot-link:hover { color: var(--accent); }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+/* ── BOTONES ── */
+.btn { width: 100%; border: none; padding: 13px; border-radius: 8px; cursor: pointer; font-family: 'Syne', sans-serif; font-weight: 700; font-size: .85rem; letter-spacing: .05em; text-transform: uppercase; transition: all .15s; margin-top: 10px; }
+.btn:active { transform: scale(.97); }
+.btn-yellow  { background: var(--accent); color: #0d0f14; }
+.btn-green   { background: #14532d; color: var(--accent2); border: 1px solid #166534; }
+.btn-red     { background: #450a0a; color: var(--danger); border: 1px solid #7f1d1d; }
+.btn-purple  { background: #2e1065; color: var(--purple); border: 1px solid #4c1d95; }
+.btn-blue    { background: #0c2556; color: var(--blue); border: 1px solid #1e3a8a; }
+.btn-ghost   { background: transparent; color: var(--textdim); border: 1px solid var(--border); }
+.btn-sm      { padding: 7px 14px; font-size: .75rem; width: auto; margin-top: 0; }
+.btn-xs      { padding: 4px 10px; font-size: .7rem; width: auto; margin-top: 0; border-radius: 6px; }
 
-        body {
-            font-family: 'Syne', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
+/* ── TABS ── */
+.tabs { display: flex; gap: 4px; background: var(--bg); border-radius: 10px; padding: 4px; margin-bottom: 12px; }
+.tab { flex: 1; padding: 9px 4px; border: none; background: transparent; color: var(--textdim); font-family: 'Syne', sans-serif; font-weight: 700; font-size: .7rem; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; border-radius: 8px; transition: all .2s; }
+.tab.active { background: var(--panel); color: var(--accent); border: 1px solid var(--border); }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
 
-        /* ── FONDO CON GRID ── */
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background-image:
-                linear-gradient(rgba(240,192,64,0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(240,192,64,0.03) 1px, transparent 1px);
-            background-size: 40px 40px;
-            pointer-events: none;
-        }
+/* ── STATUS ESP32 ── */
+#device-status { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 8px; font-size: .8rem; font-family: 'JetBrains Mono', monospace; margin-bottom: 12px; border: 1px solid transparent; transition: all .3s; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.st-online  { background: #052e16; border-color: #166534; color: var(--online); }
+.st-online  .status-dot { background: var(--online); box-shadow: 0 0 8px var(--online); animation: pulse 2s infinite; }
+.st-offline { background: #1c0606; border-color: #7f1d1d; color: var(--offline); }
+.st-offline .status-dot { background: var(--offline); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
-        .wrap {
-            width: 100%;
-            max-width: 480px;
-            position: relative;
-            z-index: 1;
-        }
+/* ── BANNER DESCONEXIÓN ── */
+#notif-banner { display: none; align-items: center; gap: 10px; padding: 11px 16px; border-radius: 8px; background: #1c1200; border: 1px solid #92400e; color: var(--orange); font-size: .78rem; font-family: 'JetBrains Mono', monospace; margin-bottom: 12px; animation: fadeIn .4s; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+#notif-banner .nb-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--orange); flex-shrink: 0; animation: pulse 1.5s infinite; }
 
-        /* ── HEADER ── */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-        .logo {
-            font-size: 1.1rem;
-            font-weight: 800;
-            color: var(--accent);
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-        }
-        .logo span { color: var(--textdim); font-weight: 400; }
-        .version { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--muted); }
+/* ── HORARIOS ── */
+.section-title { font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; color: var(--textdim); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+.section-title b { color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+.list-box { max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+.toque-item { display: flex; justify-content: space-between; align-items: center; padding: 11px 14px; border-bottom: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; font-size: .9rem; transition: background .15s; }
+.toque-item:last-child { border-bottom: none; }
+.toque-item:hover { background: rgba(240,192,64,.04); }
+.toque-time { color: var(--accent); font-weight: 700; letter-spacing: .05em; }
+.toque-actions button { background: none; border: none; cursor: pointer; font-size: .75rem; font-family: 'Syne', sans-serif; font-weight: 700; padding: 4px 8px; border-radius: 4px; transition: background .15s; }
+.btn-edit-t { color: var(--blue); }
+.btn-edit-t:hover { background: rgba(96,165,250,.1); }
+.btn-del-t  { color: var(--danger); }
+.btn-del-t:hover  { background: rgba(248,113,113,.1); }
+.no-items { text-align: center; color: var(--muted); padding: 28px; font-size: .82rem; font-family: 'JetBrains Mono', monospace; }
+.add-row { display: flex; gap: 8px; margin-top: 10px; }
+.add-row input[type="time"] { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 11px 14px; color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 1rem; font-weight: 700; outline: none; }
+.add-row input[type="time"]:focus { border-color: var(--accent); }
+.actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 
-        /* ── CARD BASE ── */
-        .card {
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 12px;
-        }
+/* ── USUARIOS ── */
+.user-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: .82rem; }
+.user-row:last-child { border-bottom: none; }
+.user-row:hover { background: rgba(255,255,255,.02); }
+.user-email { color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: .76rem; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-meta { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+.role-badge { padding: 3px 8px; border-radius: 4px; font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.role-superadmin { background: rgba(240,192,64,.15); color: var(--accent);  border: 1px solid rgba(240,192,64,.3); }
+.role-admin      { background: rgba(167,139,250,.15); color: var(--purple); border: 1px solid rgba(167,139,250,.3); }
+.role-privileged { background: rgba(96,165,250,.15);  color: var(--blue);   border: 1px solid rgba(96,165,250,.3); }
+.role-normal     { background: rgba(74,222,128,.15);  color: var(--accent2);border: 1px solid rgba(74,222,128,.3); }
+.blocked-badge { background: rgba(248,113,113,.15); color: var(--danger); border: 1px solid rgba(248,113,113,.3); padding: 3px 8px; border-radius: 4px; font-size: .62rem; font-weight: 700; text-transform: uppercase; }
+.user-actions { display: flex; gap: 4px; flex-shrink: 0; }
 
-        /* ── LOGIN ── */
-        #login-box label {
-            display: block;
-            font-size: 0.75rem;
-            color: var(--textdim);
-            margin: 14px 0 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        #login-box input {
-            width: 100%;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 12px 14px;
-            color: var(--text);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.9rem;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        #login-box input:focus { border-color: var(--accent); }
-        .login-title {
-            text-align: center;
-            font-size: 1.5rem;
-            font-weight: 800;
-            color: var(--accent);
-            margin-bottom: 4px;
-        }
-        .login-sub {
-            text-align: center;
-            font-size: 0.8rem;
-            color: var(--textdim);
-            margin-bottom: 8px;
-        }
-        #error-msg {
-            color: var(--danger);
-            font-size: 0.8rem;
-            text-align: center;
-            margin: 8px 0;
-            min-height: 20px;
-        }
+/* ── LOGS ── */
+.log-row { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.log-row:last-child { border-bottom: none; }
+.log-action { color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: .72rem; }
+.log-user   { color: var(--textdim); font-family: 'JetBrains Mono', monospace; font-size: .7rem; margin-top: 2px; }
+.log-time   { color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: .67rem; }
+.logs-toolbar { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.logs-toolbar select { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: .73rem; outline: none; flex: 1; min-width: 120px; }
+.logs-toolbar-btns { display: flex; gap: 6px; margin-bottom: 10px; }
 
-        /* ── BOTONES ── */
-        .btn {
-            width: 100%;
-            border: none;
-            padding: 13px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-family: 'Syne', sans-serif;
-            font-weight: 700;
-            font-size: 0.85rem;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-            transition: all 0.15s;
-            margin-top: 10px;
-        }
-        .btn:active { transform: scale(0.97); }
-        .btn-yellow  { background: var(--accent);  color: #0d0f14; }
-        .btn-green   { background: #14532d; color: var(--accent2); border: 1px solid #166534; }
-        .btn-red     { background: #450a0a; color: var(--danger);  border: 1px solid #7f1d1d; }
-        .btn-purple  { background: #2e1065; color: #c4b5fd; border: 1px solid #4c1d95; }
-        .btn-ghost   { background: transparent; color: var(--textdim); border: 1px solid var(--border); }
-        .btn-sm      { padding: 7px 14px; font-size: 0.75rem; width: auto; margin-top: 0; }
+/* ── MODAL ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.modal { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 24px; width: 100%; max-width: 400px; }
+.modal h3 { font-size: 1rem; font-weight: 800; color: var(--accent); margin-bottom: 16px; }
+.modal label { display: block; font-size: .72rem; color: var(--textdim); margin: 10px 0 5px; text-transform: uppercase; letter-spacing: .05em; }
+.modal input, .modal select { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 11px 14px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: .85rem; outline: none; }
+.modal input:focus, .modal select:focus { border-color: var(--accent); }
+.modal select option { background: var(--panel); }
+.modal-btns { display: flex; gap: 8px; margin-top: 16px; }
+.modal-btns .btn { margin-top: 0; }
+.modal-note { font-size: .72rem; color: var(--textdim); margin-top: 8px; padding: 8px 12px; background: var(--bg); border-radius: 6px; border-left: 2px solid var(--border); line-height: 1.5; }
 
-        /* ── STATUS ESP32 ── */
-        #device-status {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 16px;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            font-family: 'JetBrains Mono', monospace;
-            margin-bottom: 12px;
-            border: 1px solid transparent;
-            transition: all 0.3s;
-        }
-        .status-dot {
-            width: 8px; height: 8px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-        .st-online  { background: #052e16; border-color: #166534; color: var(--online); }
-        .st-online  .status-dot { background: var(--online); box-shadow: 0 0 8px var(--online); animation: pulse 2s infinite; }
-        .st-offline { background: #1c0606; border-color: #7f1d1d; color: var(--offline); }
-        .st-offline .status-dot { background: var(--offline); }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+/* ── STATUS BAR ── */
+#status-bar { font-family: 'JetBrains Mono', monospace; font-size: .72rem; color: var(--muted); text-align: center; margin-top: 6px; min-height: 18px; transition: color .3s; }
+#status-bar.ok   { color: var(--accent2); }
+#status-bar.err  { color: var(--danger);  }
+#status-bar.busy { color: var(--accent);  }
 
-        /* ── MAESTRO TOGGLE ── */
-        #btn-maestro {
-            font-size: 1rem;
-            padding: 16px;
-            letter-spacing: 0.08em;
-        }
+/* ── TOP ROW ── */
+.top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.user-info-small { font-size: .7rem; color: var(--muted); }
+.role-indicator  { font-size: .7rem; font-family: 'JetBrains Mono', monospace; padding: 3px 8px; border-radius: 4px; }
+#hora-local { font-family: 'JetBrains Mono', monospace; font-size: .8rem; color: var(--textdim); }
 
-        /* ── SECCIÓN HORARIOS ── */
-        .section-title {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--textdim);
-            margin-bottom: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .section-title b { color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+/* ── BLUETOOTH ── */
+#bt-panel { display: none; }
+#bt-panel input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 11px 14px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: .85rem; margin: 6px 0; outline: none; }
+#bt-panel input:focus { border-color: var(--purple); }
 
-        #lista-toques {
-            max-height: 230px;
-            overflow-y: auto;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            scrollbar-width: thin;
-            scrollbar-color: var(--border) transparent;
-        }
-        .toque-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 11px 14px;
-            border-bottom: 1px solid var(--border);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.9rem;
-            transition: background 0.15s;
-        }
-        .toque-item:last-child { border-bottom: none; }
-        .toque-item:hover { background: rgba(240,192,64,0.04); }
-        .toque-time { color: var(--accent); font-weight: 700; letter-spacing: 0.05em; }
-        .toque-actions button {
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 0.75rem;
-            font-family: 'Syne', sans-serif;
-            font-weight: 700;
-            padding: 4px 8px;
-            border-radius: 4px;
-            transition: background 0.15s;
-        }
-        .btn-edit  { color: #60a5fa; } .btn-edit:hover  { background: rgba(96,165,250,0.1); }
-        .btn-del   { color: var(--danger); } .btn-del:hover { background: rgba(248,113,113,0.1); }
-        .no-toques {
-            text-align: center;
-            color: var(--muted);
-            padding: 30px;
-            font-size: 0.85rem;
-            font-family: 'JetBrains Mono', monospace;
-        }
+/* ── EDIT INLINE ── */
+.edit-row { display: flex; align-items: center; gap: 8px; }
+.edit-row input[type="time"] { background: var(--bg); border: 1px solid var(--accent); border-radius: 6px; padding: 6px 10px; color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: .85rem; outline: none; width: 110px; }
 
-        /* ── AGREGAR HORARIO ── */
-        .add-row {
-            display: flex;
-            gap: 8px;
-            margin-top: 10px;
-        }
-        .add-row input[type="time"] {
-            flex: 1;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 11px 14px;
-            color: var(--accent);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 1rem;
-            font-weight: 700;
-            outline: none;
-        }
-        .add-row input[type="time"]:focus { border-color: var(--accent); }
-        .add-row .btn { flex: 0 0 auto; width: auto; padding: 11px 18px; }
+/* ── FILTROS ── */
+.filter-row { display: flex; gap: 6px; margin-bottom: 10px; }
+.filter-row select { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: .73rem; outline: none; flex: 1; }
 
-        /* ── ACCIONES GRID ── */
-        .actions-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            margin-top: 8px;
-        }
+/* ── BOTÓN MAESTRO ── */
+#btn-maestro { font-size: 1rem; padding: 16px; letter-spacing: .08em; }
 
-        /* ── BLUETOOTH PANEL ── */
-        #bt-panel { display: none; }
-        #bt-panel input {
-            width: 100%;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 11px 14px;
-            color: var(--text);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            margin: 6px 0;
-            outline: none;
-        }
-        #bt-panel input:focus { border-color: #a78bfa; }
-
-        /* ── STATUS BAR ── */
-        #status-bar {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.72rem;
-            color: var(--muted);
-            text-align: center;
-            margin-top: 6px;
-            min-height: 18px;
-            transition: color 0.3s;
-        }
-        #status-bar.ok    { color: var(--accent2); }
-        #status-bar.err   { color: var(--danger);  }
-        #status-bar.busy  { color: var(--accent);  }
-
-        .hidden { display: none; }
-
-        /* ── FOOTER ── */
-        .top-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-        .user-info { font-size: 0.75rem; color: var(--muted); }
-        #hora-local {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
-            color: var(--textdim);
-        }
-
-        /* ── EDIT INLINE ── */
-        .edit-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .edit-row input[type="time"] {
-            background: var(--bg);
-            border: 1px solid var(--accent);
-            border-radius: 6px;
-            padding: 6px 10px;
-            color: var(--accent);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            outline: none;
-            width: 110px;
-        }
-    </style>
+/* ── TOAST ── */
+#toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 20px; font-family: 'JetBrains Mono', monospace; font-size: .78rem; color: var(--text); z-index: 200; opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; }
+#toast.show     { opacity: 1; }
+#toast.toast-ok   { border-color: #166534; color: var(--accent2); }
+#toast.toast-err  { border-color: #7f1d1d; color: var(--danger);  }
+#toast.toast-warn { border-color: #92400e; color: var(--orange);  }
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -337,7 +198,7 @@
     <!-- ── HEADER ── -->
     <div class="header">
         <div class="logo">Timbre<span>·Auto</span></div>
-        <div class="version">v2.0</div>
+        <div class="version">v3.1</div>
     </div>
 
     <!-- ══════════════════════════════════ -->
@@ -350,8 +211,10 @@
         <label>Correo</label>
         <input type="email" id="user-email" placeholder="usuario@correo.com" autocomplete="email">
         <label>Contraseña</label>
-        <input type="password" id="user-pass" placeholder="••••••••" autocomplete="current-password">
+        <input type="password" id="user-pass" placeholder="••••••••" autocomplete="current-password"
+               onkeydown="if(event.key==='Enter') handleLogin()">
         <button class="btn btn-yellow" onclick="handleLogin()">Entrar →</button>
+        <div class="forgot-link" onclick="openForgotModal()">¿Olvidaste tu contraseña?</div>
     </div>
 
     <!-- ══════════════════════════════════ -->
@@ -361,11 +224,20 @@
 
         <!-- Top row -->
         <div class="top-row">
-            <span class="user-info" id="user-email-display"></span>
+            <div>
+                <div class="user-info-small" id="user-email-display"></div>
+                <div id="role-indicator" class="role-indicator" style="margin-top:3px;"></div>
+            </div>
             <div style="display:flex;gap:8px;align-items:center;">
                 <span id="hora-local"></span>
                 <button class="btn btn-ghost btn-sm" onclick="handleLogout()">Salir</button>
             </div>
+        </div>
+
+        <!-- Banner desconexión ESP32 -->
+        <div id="notif-banner">
+            <div class="nb-dot"></div>
+            <span id="notif-text">ESP32 desconectado</span>
         </div>
 
         <!-- Estado ESP32 -->
@@ -374,62 +246,224 @@
             <span id="device-status-text">Verificando ESP32...</span>
         </div>
 
-        <!-- Botón maestro -->
-        <div class="card" style="padding:16px;">
-            <button id="btn-maestro" class="btn btn-green" onclick="toggleMaestro()">Cargando…</button>
+        <!-- TABS -->
+        <div class="tabs">
+            <button class="tab active"  onclick="switchTab('control')"  id="tab-control">Control</button>
+            <button class="tab"         onclick="switchTab('horarios')" id="tab-horarios">Horarios</button>
+            <button class="tab hidden"  onclick="switchTab('usuarios')" id="tab-usuarios">Usuarios</button>
+            <button class="tab hidden"  onclick="switchTab('logs')"     id="tab-logs">Auditoría</button>
         </div>
 
-        <!-- Horarios -->
-        <div class="card">
-            <div class="section-title">
-                Horarios programados
-                <b id="contador-horarios">0</b>
-            </div>
-            <div id="lista-toques"></div>
+        <!-- ════════════════════════════════ -->
+        <!-- TAB: CONTROL                    -->
+        <!-- ════════════════════════════════ -->
+        <div id="pane-control" class="tab-pane active">
 
-            <div class="add-row" style="margin-top:12px;">
-                <input type="time" id="nuevo-horario">
-                <button class="btn btn-yellow btn-sm" onclick="addTime()">+ Agregar</button>
+            <!-- Botón maestro -->
+            <div class="card" style="padding:16px;">
+                <button id="btn-maestro" class="btn btn-green" onclick="toggleMaestro()">Cargando…</button>
+            </div>
+
+            <!-- Acciones -->
+            <div class="card" style="padding:16px;">
+                <div class="actions-grid">
+                    <button class="btn btn-red hidden" id="btn-manual" onclick="manualRing()">⚡ Toque Manual</button>
+                    <button class="btn btn-purple" onclick="syncSystem()">⟳ Sincronizar</button>
+                </div>
+                <button class="btn btn-ghost" style="margin-top:8px;" onclick="syncHora()">🕐 Actualizar Hora ESP32</button>
+            </div>
+
+            <!-- Bluetooth -->
+            <div class="card" style="padding:16px;">
+                <div class="section-title" style="cursor:pointer;" onclick="toggleBT()">
+                    Configurar WiFi por Bluetooth <span id="bt-toggle-icon">▼</span>
+                </div>
+                <div id="bt-panel">
+                    <p style="font-size:.78rem;color:var(--textdim);margin-bottom:10px;">
+                        Si el ESP32 perdió conexión, conéctate por Bluetooth a
+                        <b style="color:var(--accent)">Timbre-ESP32</b> y envía las credenciales.
+                    </p>
+                    <input type="text"     id="bt-ssid" placeholder="Nombre de la red WiFi (SSID)">
+                    <input type="password" id="bt-pass" placeholder="Contraseña del WiFi">
+                    <button class="btn btn-purple" style="margin-top:6px;" onclick="enviarCredencialesBT()">
+                        Enviar por Bluetooth
+                    </button>
+                    <div id="bt-status" style="font-size:.75rem;color:var(--muted);margin-top:8px;font-family:'JetBrains Mono',monospace;"></div>
+                </div>
             </div>
         </div>
 
-        <!-- Acciones -->
-        <div class="card" style="padding:16px;">
-            <div class="actions-grid">
-                <button class="btn btn-red" onclick="manualRing()">⚡ Toque Manual</button>
-                <button class="btn btn-purple" onclick="syncSystem()">⟳ Sincronizar</button>
+        <!-- ════════════════════════════════ -->
+        <!-- TAB: HORARIOS                   -->
+        <!-- ════════════════════════════════ -->
+        <div id="pane-horarios" class="tab-pane">
+            <div class="card">
+                <div class="section-title">
+                    Horarios programados
+                    <b id="contador-horarios">0</b>
+                </div>
+                <div id="lista-toques" class="list-box"></div>
+                <div id="add-horario-row" class="add-row" style="margin-top:12px;">
+                    <input type="time" id="nuevo-horario">
+                    <button class="btn btn-yellow btn-sm" onclick="addTime()">+ Agregar</button>
+                </div>
             </div>
-            <!-- Sincronizar hora explícitamente -->
-            <button class="btn btn-ghost" style="margin-top:8px;" onclick="syncHora()">🕐 Actualizar Hora del ESP32</button>
         </div>
 
-        <!-- Bluetooth helper -->
-        <div class="card" style="padding:16px;">
-            <div class="section-title" style="cursor:pointer;" onclick="toggleBT()">
-                Configurar WiFi por Bluetooth <span id="bt-toggle-icon">▼</span>
-            </div>
-            <div id="bt-panel">
-                <p style="font-size:0.78rem;color:var(--textdim);margin-bottom:10px;">
-                    Si el ESP32 perdió conexión, conecta tu dispositivo por Bluetooth a <b style="color:var(--accent)">Timbre-ESP32</b> y envía las credenciales con el botón de abajo.
-                </p>
-                <input type="text"     id="bt-ssid" placeholder="Nombre de la red WiFi (SSID)">
-                <input type="password" id="bt-pass" placeholder="Contraseña del WiFi">
-                <button class="btn btn-purple" style="margin-top:6px;" onclick="enviarCredencialesBT()">
-                    Enviar por Bluetooth
+        <!-- ════════════════════════════════ -->
+        <!-- TAB: USUARIOS                   -->
+        <!-- ════════════════════════════════ -->
+        <div id="pane-usuarios" class="tab-pane">
+            <div class="card">
+                <button class="btn btn-yellow" style="margin-bottom:10px;" onclick="openNewUserModal()">
+                    + Crear nuevo usuario
                 </button>
-                <div id="bt-status" style="font-size:0.75rem;color:var(--muted);margin-top:8px;font-family:'JetBrains Mono',monospace;"></div>
+                <div class="filter-row">
+                    <select id="filter-role" onchange="renderUsuarios()">
+                        <option value="">Todos los roles</option>
+                        <option value="superadmin">Super Admin</option>
+                        <option value="admin">Admin</option>
+                        <option value="privileged">Privilegiado</option>
+                        <option value="normal">Normal</option>
+                    </select>
+                    <select id="filter-status" onchange="renderUsuarios()">
+                        <option value="">Todos</option>
+                        <option value="active">Activos</option>
+                        <option value="blocked">Bloqueados</option>
+                    </select>
+                </div>
+                <div id="lista-usuarios" class="list-box"></div>
+            </div>
+        </div>
+
+        <!-- ════════════════════════════════ -->
+        <!-- TAB: AUDITORÍA / LOGS           -->
+        <!-- ════════════════════════════════ -->
+        <div id="pane-logs" class="tab-pane">
+            <div class="card">
+                <div class="section-title">
+                    Registro de acciones
+                    <b id="log-count">0</b>
+                </div>
+                <div class="logs-toolbar">
+                    <select id="filter-log-user" onchange="renderLogs()">
+                        <option value="">Todos los usuarios</option>
+                    </select>
+                    <select id="filter-log-action" onchange="renderLogs()">
+                        <option value="">Todas las acciones</option>
+                        <option value="sesion">Sesión</option>
+                        <option value="timbre">Timbre</option>
+                        <option value="horario">Horarios</option>
+                        <option value="usuario">Usuarios</option>
+                        <option value="sistema">Sistema</option>
+                    </select>
+                </div>
+                <div class="logs-toolbar-btns">
+                    <button class="btn btn-blue btn-sm" onclick="exportarLogsCSV()">⬇ Exportar CSV</button>
+                    <button class="btn btn-ghost btn-sm" onclick="clearLogs()">🗑 Limpiar</button>
+                </div>
+                <div id="lista-logs" class="list-box"></div>
             </div>
         </div>
 
         <div id="status-bar">Listo.</div>
     </div>
 
+</div><!-- /wrap -->
+
+<!-- ── TOAST ── -->
+<div id="toast"></div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  MODAL: OLVIDÉ CONTRASEÑA            -->
+<!-- ══════════════════════════════════════ -->
+<div id="modal-forgot" class="modal-overlay hidden">
+    <div class="modal">
+        <h3>Recuperar Contraseña</h3>
+        <p style="font-size:.8rem;color:var(--textdim);margin-bottom:12px;line-height:1.5;">
+            Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña vía Firebase.
+        </p>
+        <label>Correo electrónico</label>
+        <input type="email" id="forgot-email" placeholder="tu@correo.com">
+        <div id="forgot-msg" style="font-size:.78rem;margin-top:8px;min-height:18px;"></div>
+        <div class="modal-btns">
+            <button class="btn btn-yellow" onclick="sendPasswordReset()" style="flex:1;">Enviar enlace</button>
+            <button class="btn btn-ghost"  onclick="closeModal('modal-forgot')" style="flex:0 0 auto;width:auto;padding:13px 20px;">Cancelar</button>
+        </div>
+    </div>
 </div>
 
+<!-- ══════════════════════════════════════ -->
+<!--  MODAL: NUEVO USUARIO                -->
+<!-- ══════════════════════════════════════ -->
+<div id="modal-new-user" class="modal-overlay hidden">
+    <div class="modal">
+        <h3>Crear Usuario</h3>
+        <label>Correo electrónico</label>
+        <input type="email" id="new-u-email" placeholder="correo@ejemplo.com">
+        <label>Contraseña temporal</label>
+        <input type="password" id="new-u-pass" placeholder="Mínimo 6 caracteres">
+        <label>Rol</label>
+        <select id="new-u-role">
+            <option value="normal">Normal — solo sync y hora</option>
+            <option value="privileged">Privilegiado — + toque manual</option>
+            <option value="admin">Admin — acceso completo</option>
+        </select>
+        <div class="modal-note">
+            ⚠ Al crear el usuario la sesión actual se cerrará momentáneamente.
+            Vuelve a iniciar sesión con tus credenciales de administrador.
+        </div>
+        <div id="new-u-error" style="color:var(--danger);font-size:.75rem;margin-top:8px;min-height:18px;"></div>
+        <div class="modal-btns">
+            <button class="btn btn-yellow" onclick="createUser()" style="flex:1;">Crear Usuario</button>
+            <button class="btn btn-ghost"  onclick="closeModal('modal-new-user')" style="flex:0 0 auto;width:auto;padding:13px 20px;">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  MODAL: EDITAR USUARIO               -->
+<!-- ══════════════════════════════════════ -->
+<div id="modal-edit-user" class="modal-overlay hidden">
+    <div class="modal">
+        <h3>Editar Usuario</h3>
+        <input type="hidden" id="edit-u-uid">
+        <div id="edit-u-email-display"
+             style="font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--textdim);
+                    margin-bottom:12px;padding:10px;background:var(--bg);border-radius:8px;"></div>
+        <label>Rol</label>
+        <select id="edit-u-role">
+            <option value="normal">Normal</option>
+            <option value="privileged">Privilegiado</option>
+            <option value="admin">Admin</option>
+        </select>
+        <label>Estado de la cuenta</label>
+        <select id="edit-u-blocked">
+            <option value="false">✅ Activo</option>
+            <option value="true">🚫 Bloqueado</option>
+        </select>
+        <label>Reset de contraseña</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
+            <input type="checkbox" id="edit-u-reset-pass" style="width:auto;accent-color:var(--accent);">
+            <span style="font-size:.78rem;color:var(--textdim);">
+                Enviar enlace de restablecimiento al correo del usuario
+            </span>
+        </div>
+        <div id="edit-u-error" style="color:var(--danger);font-size:.75rem;margin-top:8px;min-height:18px;"></div>
+        <div class="modal-btns">
+            <button class="btn btn-yellow" onclick="saveEditUser()" style="flex:1;">Guardar</button>
+            <button class="btn btn-ghost"  onclick="closeModal('modal-edit-user')" style="flex:0 0 auto;width:auto;padding:13px 20px;">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!--  JAVASCRIPT                          -->
+<!-- ══════════════════════════════════════ -->
 <script>
-// ══════════════════════════════════════════════
+// ══════════════════════════════════════════
 //  FIREBASE CONFIG
-// ══════════════════════════════════════════════
+// ══════════════════════════════════════════
 const firebaseConfig = {
     apiKey:      "AIzaSyAbTb-cXeJmmPprRaVTqSyBiEyoEGv93f0",
     authDomain:  "sistematimbre.firebaseapp.com",
@@ -440,60 +474,155 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.database();
 
-let estadoMaestro = true;
-let hbTimer = null;
+// ══════════════════════════════════════════
+//  ESTADO GLOBAL
+// ══════════════════════════════════════════
+let currentUser    = null;
+let currentRole    = null;
+let estadoMaestro  = true;
+let hbTimer        = null;
+let allUsuarios    = {};
+let allLogs        = [];
+let esp32WasOnline = null;
 
-// ── Reloj local ──────────────────────────────
+const ROLES_ORDER = { superadmin: 4, admin: 3, privileged: 2, normal: 1 };
+
+const LOG_CATEGORIES = {
+    sesion:  ['Inicio de sesión', 'Cierre de sesión'],
+    timbre:  ['Toque manual enviado', 'Sistema activado', 'Sistema pausado'],
+    horario: ['Horario agregado', 'Horario eliminado', 'Horario editado'],
+    usuario: ['Usuario creado', 'Usuario editado', 'Usuario bloqueado',
+              'Usuario desbloqueado', 'Reset de contraseña enviado', 'Logs limpiados'],
+    sistema: ['Hora sincronizada', 'Sistema sincronizado',
+              'ESP32 desconectado detectado', 'ESP32 reconectado'],
+};
+
+const ACTION_ICONS = {
+    'Inicio de sesión':             '🔓',
+    'Cierre de sesión':             '🔒',
+    'Toque manual enviado':         '⚡',
+    'Sistema activado':             '✔',
+    'Sistema pausado':              '⏸',
+    'Horario agregado':             '＋',
+    'Horario eliminado':            '✕',
+    'Horario editado':              '✏',
+    'Hora sincronizada':            '🕐',
+    'Sistema sincronizado':         '⟳',
+    'Usuario creado':               '👤',
+    'Usuario editado':              '✏',
+    'Usuario bloqueado':            '🚫',
+    'Usuario desbloqueado':         '✅',
+    'Reset de contraseña enviado':  '📧',
+    'Logs limpiados':               '🗑',
+    'ESP32 desconectado detectado': '⚠',
+    'ESP32 reconectado':            '📶',
+};
+
+// ══════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════
+let toastTimer = null;
+function toast(msg, tipo = 'ok') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = `show toast-${tipo}`;
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = ''; }, 4000);
+}
+
+// ══════════════════════════════════════════
+//  RELOJ LOCAL
+// ══════════════════════════════════════════
 function actualizarReloj() {
-    const ahora = new Date();
-    const pad = n => String(n).padStart(2,'0');
+    const n = new Date();
+    const p = x => String(x).padStart(2, '0');
     document.getElementById('hora-local').textContent =
-        `${pad(ahora.getHours())}:${pad(ahora.getMinutes())}:${pad(ahora.getSeconds())}`;
+        `${p(n.getHours())}:${p(n.getMinutes())}:${p(n.getSeconds())}`;
 }
 setInterval(actualizarReloj, 1000);
 actualizarReloj();
 
-// ── Sincronización automática de hora (cada 24h) ─
+// ══════════════════════════════════════════
+//  SYNC HORA DIARIA
+// ══════════════════════════════════════════
+function subirTimestampHora() {
+    db.ref('hora_unix_ms').set(Date.now()).catch(() => {});
+}
 function programarSyncHora() {
-    const ahora = new Date();
-    // Calcular ms hasta la próxima medianoche (hora local)
-    const mañana = new Date(ahora);
-    mañana.setDate(mañana.getDate() + 1);
-    mañana.setHours(0, 0, 30, 0); // 00:00:30 del día siguiente
-    const msHastaMedianoche = mañana - ahora;
-
+    const n = new Date(), m = new Date(n);
+    m.setDate(m.getDate() + 1);
+    m.setHours(0, 0, 30, 0);
     setTimeout(() => {
         subirTimestampHora();
-        // Repetir cada 24h
-        setInterval(subirTimestampHora, 24 * 60 * 60 * 1000);
-    }, msHastaMedianoche);
-
-    console.log(`Sync de hora programado en ${Math.round(msHastaMedianoche/3600000)} horas.`);
+        setInterval(subirTimestampHora, 86400000);
+    }, m - n);
 }
 
-function subirTimestampHora() {
-    db.ref('hora_unix_ms').set(Date.now())
-      .then(() => console.log('Hora sincronizada con Firebase:', new Date().toLocaleString()))
-      .catch(e => console.error('Error subiendo hora:', e));
+// ══════════════════════════════════════════
+//  LOG DE AUDITORÍA
+// ══════════════════════════════════════════
+function addLog(action) {
+    if (!currentUser) return;
+    db.ref('logs').push({
+        uid:       currentUser.uid,
+        email:     currentUser.email,
+        role:      currentRole,
+        action,
+        timestamp: Date.now()
+    }).catch(() => {});
 }
 
-// ══════════════════════════════════════════════
-//  AUTH
-// ══════════════════════════════════════════════
-auth.onAuthStateChanged(user => {
+// ══════════════════════════════════════════
+//  AUTENTICACIÓN
+// ══════════════════════════════════════════
+auth.onAuthStateChanged(async user => {
     if (user) {
+        currentUser = user;
+        const snap = await db.ref(`usuarios/${user.uid}`).get();
+        if (!snap.exists()) {
+            setStatus('Usuario no registrado en el sistema.', 'err');
+            auth.signOut();
+            return;
+        }
+        const data = snap.val();
+        if (data.blocked) {
+            setStatus('Tu cuenta está bloqueada. Contacta al administrador.', 'err');
+            auth.signOut();
+            return;
+        }
+        currentRole = data.role || 'normal';
         document.getElementById('login-box').classList.add('hidden');
         document.getElementById('panel-box').classList.remove('hidden');
         document.getElementById('user-email-display').textContent = user.email;
+
+        const ri = document.getElementById('role-indicator');
+        ri.textContent = ({ superadmin: 'Super Admin', admin: 'Administrador', privileged: 'Privilegiado', normal: 'Normal' })[currentRole] || currentRole;
+        ri.className = 'role-indicator role-badge role-' + currentRole;
+
+        applyRoleUI();
         startListening();
-        // Subir hora al conectar y programar sync diario
         subirTimestampHora();
         programarSyncHora();
+        addLog('Inicio de sesión');
     } else {
+        currentUser = null;
+        currentRole = null;
         document.getElementById('login-box').classList.remove('hidden');
         document.getElementById('panel-box').classList.add('hidden');
     }
 });
+
+function applyRoleUI() {
+    const r = currentRole;
+    const isAdmin = (r === 'admin' || r === 'superadmin');
+    const isPriv  = (r === 'privileged' || isAdmin);
+    if (isAdmin) {
+        document.getElementById('tab-usuarios').classList.remove('hidden');
+        document.getElementById('tab-logs').classList.remove('hidden');
+    }
+    if (isPriv) document.getElementById('btn-manual').classList.remove('hidden');
+    if (!isAdmin) document.getElementById('add-horario-row').classList.add('hidden');
+}
 
 function handleLogin() {
     const email = document.getElementById('user-email').value.trim();
@@ -504,40 +633,82 @@ function handleLogin() {
     });
 }
 
-function handleLogout() { auth.signOut(); }
+function handleLogout() {
+    addLog('Cierre de sesión');
+    auth.signOut();
+}
 
-// ══════════════════════════════════════════════
+// ══════════════════════════════════════════
+//  RESET DE CONTRASEÑA — USUARIO MISMO
+// ══════════════════════════════════════════
+function openForgotModal() {
+    document.getElementById('forgot-email').value = document.getElementById('user-email').value || '';
+    document.getElementById('forgot-msg').textContent = '';
+    document.getElementById('modal-forgot').classList.remove('hidden');
+}
+
+function sendPasswordReset() {
+    const email = document.getElementById('forgot-email').value.trim();
+    const msgEl = document.getElementById('forgot-msg');
+    if (!email) { msgEl.style.color = 'var(--danger)'; msgEl.textContent = 'Ingresa tu correo.'; return; }
+    msgEl.style.color = 'var(--accent)';
+    msgEl.textContent = 'Enviando...';
+    auth.sendPasswordResetEmail(email)
+        .then(() => {
+            msgEl.style.color = 'var(--accent2)';
+            msgEl.textContent = '✓ Enlace enviado. Revisa tu bandeja de entrada.';
+            setTimeout(() => closeModal('modal-forgot'), 3000);
+        })
+        .catch(e => {
+            msgEl.style.color = 'var(--danger)';
+            msgEl.textContent = e.code === 'auth/user-not-found'
+                ? 'No existe una cuenta con ese correo.'
+                : 'Error al enviar. Verifica el correo.';
+        });
+}
+
+// ══════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════
+function switchTab(name) {
+    ['control', 'horarios', 'usuarios', 'logs'].forEach(t => {
+        document.getElementById('pane-' + t)?.classList.remove('active');
+        document.getElementById('tab-'  + t)?.classList.remove('active');
+    });
+    document.getElementById('pane-' + name).classList.add('active');
+    document.getElementById('tab-'  + name)?.classList.add('active');
+}
+
+// ══════════════════════════════════════════
 //  LISTENERS EN TIEMPO REAL
-// ══════════════════════════════════════════════
+// ══════════════════════════════════════════
 function startListening() {
-    // Estado maestro
+
+    // ── Estado maestro ──
     db.ref('estado_maestro').on('value', snap => {
         estadoMaestro = snap.val() !== false;
         const btn = document.getElementById('btn-maestro');
-        if (estadoMaestro) {
-            btn.textContent = '✔ SISTEMA ACTIVADO';
-            btn.className   = 'btn btn-green';
-        } else {
-            btn.textContent = '⏸ SISTEMA PAUSADO';
-            btn.className   = 'btn btn-red';
+        if (estadoMaestro) { btn.textContent = '✔ SISTEMA ACTIVADO'; btn.className = 'btn btn-green'; }
+        else               { btn.textContent = '⏸ SISTEMA PAUSADO';  btn.className = 'btn btn-red';   }
+        if (currentRole === 'normal') {
+            btn.disabled = true;
+            btn.style.opacity = '.5';
+            btn.style.cursor  = 'not-allowed';
         }
     });
 
-    // Horarios
+    // ── Horarios ──
     db.ref('timbres').on('value', snap => {
         const listDiv = document.getElementById('lista-toques');
         listDiv.innerHTML = '';
         let count = 0;
         if (!snap.exists()) {
-            listDiv.innerHTML = '<div class="no-toques">Sin horarios registrados</div>';
+            listDiv.innerHTML = '<div class="no-items">Sin horarios registrados</div>';
         } else {
-            // Ordenar por hora
             const items = [];
-            snap.forEach(child => {
-                const t = child.val();
-                items.push({ key: child.key, h: t.h, m: t.m });
-            });
-            items.sort((a,b) => a.h*60+a.m - (b.h*60+b.m));
+            snap.forEach(c => { const t = c.val(); items.push({ key: c.key, h: t.h, m: t.m }); });
+            items.sort((a, b) => a.h * 60 + a.m - (b.h * 60 + b.m));
+            const isAdmin = (currentRole === 'admin' || currentRole === 'superadmin');
             items.forEach(t => {
                 const ts = `${String(t.h).padStart(2,'0')}:${String(t.m).padStart(2,'0')}`;
                 const div = document.createElement('div');
@@ -546,8 +717,8 @@ function startListening() {
                 div.innerHTML = `
                     <span class="toque-time">${ts}</span>
                     <div class="toque-actions">
-                        <button class="btn-edit" onclick="showEditForm('${t.key}','${ts}')">Editar</button>
-                        <button class="btn-del"  onclick="deleteTime('${t.key}')">Borrar</button>
+                        ${isAdmin ? `<button class="btn-edit-t" onclick="showEditForm('${t.key}','${ts}')">Editar</button>
+                                     <button class="btn-del-t"  onclick="deleteTime('${t.key}')">Borrar</button>` : ''}
                     </div>`;
                 listDiv.appendChild(div);
                 count++;
@@ -556,67 +727,355 @@ function startListening() {
         document.getElementById('contador-horarios').textContent = count;
     });
 
-    // Heartbeat / estado del dispositivo
+    // ── Heartbeat ESP32 + Notificación desconexión ──
     db.ref('ultima_conexion').on('value', snap => {
         const statusDiv  = document.getElementById('device-status');
         const statusText = document.getElementById('device-status-text');
+        const banner     = document.getElementById('notif-banner');
+        const notifText  = document.getElementById('notif-text');
         const lastTime   = snap.val();
+
         const update = () => {
             if (!lastTime) {
-                statusDiv.className  = 'st-offline';
+                statusDiv.className = 'st-offline';
                 statusText.textContent = 'Sin datos del dispositivo';
+                checkEsp32StateChange(false, null, banner, notifText);
                 return;
             }
             const diff = (Date.now() - lastTime) / 1000;
-            if (diff < 40) {
+            const isOnline = diff < 40;
+            if (isOnline) {
                 statusDiv.className = 'st-online';
-                const hace = Math.round(diff);
-                statusText.textContent = `ESP32 EN LÍNEA — hace ${hace}s`;
+                statusText.textContent = `ESP32 EN LÍNEA — hace ${Math.round(diff)}s`;
+                banner.style.display = 'none';
             } else {
                 statusDiv.className = 'st-offline';
-                const min = Math.round(diff / 60);
-                statusText.textContent = `FUERA DE LÍNEA — última vez hace ${min} min`;
+                statusText.textContent = `FUERA DE LÍNEA — hace ${Math.round(diff / 60)} min`;
             }
+            checkEsp32StateChange(isOnline, diff, banner, notifText);
         };
         update();
         if (hbTimer) clearInterval(hbTimer);
         hbTimer = setInterval(update, 5000);
     });
+
+    // ── Usuarios y Logs (solo admin+) ──
+    if (currentRole === 'admin' || currentRole === 'superadmin') {
+        db.ref('usuarios').on('value', snap => {
+            allUsuarios = {};
+            snap.forEach(c => { allUsuarios[c.key] = { ...c.val(), uid: c.key }; });
+            renderUsuarios();
+            updateLogFilter();
+        });
+        db.ref('logs').orderByChild('timestamp').limitToLast(300).on('value', snap => {
+            allLogs = [];
+            snap.forEach(c => { allLogs.push({ ...c.val(), key: c.key }); });
+            allLogs.reverse();
+            renderLogs();
+        });
+    }
 }
 
-// ══════════════════════════════════════════════
-//  ACCIONES
-// ══════════════════════════════════════════════
+// ══════════════════════════════════════════
+//  DETECCIÓN CAMBIO ESTADO ESP32
+// ══════════════════════════════════════════
+function checkEsp32StateChange(isOnline, diff, banner, notifText) {
+    if (esp32WasOnline === null) { esp32WasOnline = isOnline; return; }
+    if (esp32WasOnline && !isOnline) {
+        // Acaba de desconectarse
+        const mins = diff ? Math.round(diff / 60) : 0;
+        const hora = new Date(Date.now() - (diff || 0) * 1000).toLocaleTimeString('es-SV');
+        notifText.textContent = `⚠ ESP32 se desconectó hace ${mins} min — última vez activo a las ${hora}`;
+        banner.style.display = 'flex';
+        toast(`⚠ ESP32 DESCONECTADO — hace ${mins} min`, 'warn');
+        addLog('ESP32 desconectado detectado');
+        // Notificación nativa del navegador
+        if (Notification.permission === 'granted') {
+            new Notification('Timbre·Auto — ESP32 Desconectado', {
+                body: `El ESP32 se desconectó hace ${mins} minutos.`
+            });
+        } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission().then(p => {
+                if (p === 'granted') {
+                    new Notification('Timbre·Auto — ESP32 Desconectado', {
+                        body: 'El ESP32 acaba de desconectarse.'
+                    });
+                }
+            });
+        }
+    } else if (!esp32WasOnline && isOnline) {
+        // Se reconectó
+        banner.style.display = 'none';
+        toast('✓ ESP32 reconectado', 'ok');
+        addLog('ESP32 reconectado');
+    }
+    esp32WasOnline = isOnline;
+}
+
+// ══════════════════════════════════════════
+//  RENDER USUARIOS
+// ══════════════════════════════════════════
+function canManage(actorRole, targetRole) {
+    if (actorRole === 'superadmin') return targetRole !== 'superadmin';
+    if (actorRole === 'admin')      return targetRole === 'normal' || targetRole === 'privileged';
+    return false;
+}
+
+function getRoleBadge(role) {
+    const labels = { superadmin: 'Super Admin', admin: 'Admin', privileged: 'Privilegiado', normal: 'Normal' };
+    return `<span class="role-badge role-${role}">${labels[role] || role}</span>`;
+}
+
+function renderUsuarios() {
+    const filterRole   = document.getElementById('filter-role').value;
+    const filterStatus = document.getElementById('filter-status').value;
+    const div = document.getElementById('lista-usuarios');
+    div.innerHTML = '';
+    const list = Object.values(allUsuarios)
+        .filter(u => {
+            if (filterRole   && u.role !== filterRole) return false;
+            if (filterStatus === 'active'  &&  u.blocked) return false;
+            if (filterStatus === 'blocked' && !u.blocked) return false;
+            return true;
+        })
+        .sort((a, b) => (ROLES_ORDER[b.role] || 0) - (ROLES_ORDER[a.role] || 0));
+
+    if (!list.length) { div.innerHTML = '<div class="no-items">Sin usuarios</div>'; return; }
+
+    list.forEach(u => {
+        const row = document.createElement('div');
+        row.className = 'user-row';
+        const canEdit = canManage(currentRole, u.role);
+        row.innerHTML = `
+            <div style="min-width:0;">
+                <div class="user-email">${u.email || u.uid}</div>
+                <div class="user-meta">
+                    ${getRoleBadge(u.role)}
+                    ${u.blocked ? '<span class="blocked-badge">Bloqueado</span>' : ''}
+                </div>
+            </div>
+            <div class="user-actions">
+                ${canEdit ? `<button class="btn btn-ghost btn-xs" onclick="openEditUserModal('${u.uid}')">Editar</button>` : ''}
+            </div>`;
+        div.appendChild(row);
+    });
+}
+
+// ══════════════════════════════════════════
+//  RENDER LOGS
+// ══════════════════════════════════════════
+function renderLogs() {
+    const filterUser = document.getElementById('filter-log-user').value;
+    const filterCat  = document.getElementById('filter-log-action').value;
+    const div = document.getElementById('lista-logs');
+    div.innerHTML = '';
+
+    let list = allLogs;
+    if (filterUser) list = list.filter(l => l.uid === filterUser);
+    if (filterCat && LOG_CATEGORIES[filterCat]) {
+        list = list.filter(l => LOG_CATEGORIES[filterCat].some(a => l.action && l.action.startsWith(a)));
+    }
+
+    document.getElementById('log-count').textContent = list.length;
+    if (!list.length) { div.innerHTML = '<div class="no-items">Sin registros</div>'; return; }
+
+    list.forEach(l => {
+        const d = new Date(l.timestamp);
+        const fecha = `${d.toLocaleDateString('es-SV', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${d.toLocaleTimeString('es-SV')}`;
+        const icon = Object.entries(ACTION_ICONS).find(([k]) => l.action && l.action.startsWith(k))?.[1] || '·';
+        const row = document.createElement('div');
+        row.className = 'log-row';
+        row.innerHTML = `
+            <div class="log-action">${icon} ${l.action || 'Acción'}</div>
+            <div class="log-user">${l.email || l.uid} · ${getRoleBadge(l.role || 'normal')}</div>
+            <div class="log-time">${fecha}</div>`;
+        div.appendChild(row);
+    });
+}
+
+function updateLogFilter() {
+    const sel = document.getElementById('filter-log-user');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Todos los usuarios</option>';
+    Object.values(allUsuarios).forEach(u => {
+        if (!u.email) return;
+        const o = document.createElement('option');
+        o.value = u.uid;
+        o.textContent = u.email;
+        if (u.uid === cur) o.selected = true;
+        sel.appendChild(o);
+    });
+}
+
+// ══════════════════════════════════════════
+//  EXPORTAR LOGS A CSV
+// ══════════════════════════════════════════
+function exportarLogsCSV() {
+    const filterUser = document.getElementById('filter-log-user').value;
+    const filterCat  = document.getElementById('filter-log-action').value;
+    let list = allLogs;
+    if (filterUser) list = list.filter(l => l.uid === filterUser);
+    if (filterCat && LOG_CATEGORIES[filterCat]) {
+        list = list.filter(l => LOG_CATEGORIES[filterCat].some(a => l.action && l.action.startsWith(a)));
+    }
+    if (!list.length) { toast('No hay registros para exportar', 'warn'); return; }
+
+    const bom    = '\uFEFF'; // BOM para que Excel abra bien las tildes
+    const header = 'Fecha,Hora,Usuario,UID,Rol,Acción\n';
+    const rows   = list.map(l => {
+        const d     = new Date(l.timestamp);
+        const fecha = d.toLocaleDateString('es-SV', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const hora  = d.toLocaleTimeString('es-SV');
+        const clean = v => (v || '').toString().replace(/,/g, ';').replace(/\n/g, ' ');
+        return `${fecha},${hora},${clean(l.email)},${clean(l.uid)},${clean(l.role)},${clean(l.action)}`;
+    }).join('\n');
+
+    const csv  = bom + header + rows;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const now  = new Date();
+    const fname = `timbre_logs_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.csv`;
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+
+    addLog(`Logs exportados (${list.length} registros)`);
+    toast(`✓ CSV exportado — ${list.length} registros`, 'ok');
+}
+
+function clearLogs() {
+    if (!confirm('¿Limpiar todos los logs? Esta acción no se puede deshacer.')) return;
+    db.ref('logs').remove()
+        .then(() => { addLog('Logs limpiados'); toast('Logs eliminados ✓', 'ok'); })
+        .catch(() => toast('Error al limpiar', 'err'));
+}
+
+// ══════════════════════════════════════════
+//  MODAL: NUEVO USUARIO
+// ══════════════════════════════════════════
+function openNewUserModal() {
+    document.getElementById('new-u-email').value = '';
+    document.getElementById('new-u-pass').value  = '';
+    document.getElementById('new-u-error').textContent = '';
+    const sel = document.getElementById('new-u-role');
+    sel.innerHTML = `
+        <option value="normal">Normal — solo sync y hora</option>
+        <option value="privileged">Privilegiado — + toque manual</option>`;
+    if (currentRole === 'superadmin') {
+        sel.innerHTML += '<option value="admin">Admin — acceso completo</option>';
+    }
+    document.getElementById('modal-new-user').classList.remove('hidden');
+}
+
+async function createUser() {
+    const email = document.getElementById('new-u-email').value.trim();
+    const pass  = document.getElementById('new-u-pass').value;
+    const role  = document.getElementById('new-u-role').value;
+    const errEl = document.getElementById('new-u-error');
+    if (!email || !pass) { errEl.textContent = 'Todos los campos son obligatorios.'; return; }
+    if (pass.length < 6) { errEl.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
+    errEl.textContent = 'Creando usuario...';
+    try {
+        const cred = await auth.createUserWithEmailAndPassword(email, pass);
+        await db.ref(`usuarios/${cred.user.uid}`).set({
+            email, role, blocked: false,
+            createdBy: currentUser.uid,
+            createdAt: Date.now()
+        });
+        addLog(`Usuario creado: ${email} (${role})`);
+        closeModal('modal-new-user');
+        await auth.signOut();
+        toast(`Usuario ${email} creado. Vuelve a iniciar sesión.`, 'ok');
+    } catch(e) {
+        errEl.textContent = e.message || 'Error al crear usuario.';
+    }
+}
+
+// ══════════════════════════════════════════
+//  MODAL: EDITAR USUARIO
+// ══════════════════════════════════════════
+function openEditUserModal(uid) {
+    const u = allUsuarios[uid]; if (!u) return;
+    document.getElementById('edit-u-uid').value = uid;
+    document.getElementById('edit-u-email-display').textContent = u.email || uid;
+    const sel = document.getElementById('edit-u-role');
+    sel.innerHTML = '<option value="normal">Normal</option><option value="privileged">Privilegiado</option>';
+    if (currentRole === 'superadmin') sel.innerHTML += '<option value="admin">Admin</option>';
+    sel.value = u.role || 'normal';
+    document.getElementById('edit-u-blocked').value = u.blocked ? 'true' : 'false';
+    document.getElementById('edit-u-reset-pass').checked = false;
+    document.getElementById('edit-u-error').textContent = '';
+    document.getElementById('modal-edit-user').classList.remove('hidden');
+}
+
+async function saveEditUser() {
+    const uid       = document.getElementById('edit-u-uid').value;
+    const role      = document.getElementById('edit-u-role').value;
+    const blocked   = document.getElementById('edit-u-blocked').value === 'true';
+    const sendReset = document.getElementById('edit-u-reset-pass').checked;
+    const errEl     = document.getElementById('edit-u-error');
+    const u = allUsuarios[uid];
+    if (!u) { errEl.textContent = 'Usuario no encontrado.'; return; }
+    if (!canManage(currentRole, u.role) && !(currentRole === 'superadmin' && u.role !== 'superadmin')) {
+        errEl.textContent = 'No tienes permisos para editar este usuario.'; return;
+    }
+    try {
+        await db.ref(`usuarios/${uid}`).update({ role, blocked });
+        const wasBlocked = u.blocked;
+        if (blocked !== wasBlocked) addLog(blocked ? `Usuario bloqueado: ${u.email}` : `Usuario desbloqueado: ${u.email}`);
+        else addLog(`Usuario editado: ${u.email} → rol: ${role}`);
+        if (sendReset && u.email) {
+            await auth.sendPasswordResetEmail(u.email);
+            addLog(`Reset de contraseña enviado a: ${u.email}`);
+            toast(`📧 Enlace de reset enviado a ${u.email}`, 'ok');
+        }
+        closeModal('modal-edit-user');
+        toast('Usuario actualizado ✓', 'ok');
+    } catch(e) {
+        errEl.textContent = e.message || 'Error al guardar.';
+    }
+}
+
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+// ══════════════════════════════════════════
+//  ACCIONES ESP32
+// ══════════════════════════════════════════
 function setStatus(msg, tipo = '') {
     const el = document.getElementById('status-bar');
-    el.textContent = msg;
-    el.className   = tipo;
+    el.textContent = msg; el.className = tipo;
     if (tipo === 'ok') setTimeout(() => { el.textContent = 'Listo.'; el.className = ''; }, 4000);
 }
 
 function toggleMaestro() {
-    db.ref('estado_maestro').set(!estadoMaestro).catch(() => setStatus('Error al cambiar estado', 'err'));
+    if (currentRole === 'normal') { toast('Sin permisos para cambiar el estado', 'warn'); return; }
+    const nuevo = !estadoMaestro;
+    db.ref('estado_maestro').set(nuevo)
+        .then(() => addLog(nuevo ? 'Sistema activado' : 'Sistema pausado'))
+        .catch(() => toast('Error', 'err'));
 }
 
 function addTime() {
     const val = document.getElementById('nuevo-horario').value;
-    if (!val) { setStatus('Selecciona una hora primero', 'err'); return; }
+    if (!val) { toast('Selecciona una hora', 'warn'); return; }
     const [h, m] = val.split(':').map(Number);
-    setStatus('Guardando horario...', 'busy');
     db.ref('timbres').push({ h, m }).then(() => {
         triggerSync();
         document.getElementById('nuevo-horario').value = '';
-        setStatus('Horario guardado ✓', 'ok');
-    }).catch(() => setStatus('Error al guardar', 'err'));
+        addLog(`Horario agregado: ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+        toast('Horario guardado ✓', 'ok');
+    }).catch(() => toast('Error al guardar', 'err'));
 }
 
 function deleteTime(id) {
     if (!confirm('¿Borrar este horario?')) return;
-    setStatus('Borrando...', 'busy');
+    const label = document.getElementById(`item-${id}`)?.querySelector('.toque-time')?.textContent || '';
     db.ref('timbres/' + id).remove().then(() => {
         triggerSync();
-        setStatus('Horario eliminado ✓', 'ok');
-    }).catch(() => setStatus('Error al borrar', 'err'));
+        addLog(`Horario eliminado: ${label}`);
+        toast('Horario eliminado ✓', 'ok');
+    }).catch(() => toast('Error', 'err'));
 }
 
 function showEditForm(id, currentTime) {
@@ -624,86 +1083,70 @@ function showEditForm(id, currentTime) {
     item.innerHTML = `
         <div class="edit-row">
             <input type="time" id="edit-${id}" value="${currentTime}">
-            <button class="btn-edit" onclick="saveEdit('${id}')">OK</button>
-            <button class="btn-del"  onclick="cancelEdit()">✕</button>
+            <button class="btn-edit-t" onclick="saveEdit('${id}','${currentTime}')">OK</button>
+            <button class="btn-del-t"  onclick="cancelEdit()">✕</button>
         </div>`;
 }
-
 function cancelEdit() { /* el listener de DB reconstruye la lista */ }
 
-function saveEdit(id) {
+function saveEdit(id, oldTime) {
     const newVal = document.getElementById(`edit-${id}`)?.value;
     if (!newVal) return;
     const [h, m] = newVal.split(':').map(Number);
-    setStatus('Actualizando...', 'busy');
     db.ref('timbres/' + id).update({ h, m }).then(() => {
         triggerSync();
-        setStatus('Horario actualizado ✓', 'ok');
-    }).catch(() => setStatus('Error al actualizar', 'err'));
+        addLog(`Horario editado: ${oldTime} → ${newVal}`);
+        toast('Horario actualizado ✓', 'ok');
+    }).catch(() => toast('Error', 'err'));
 }
 
 function manualRing() {
-    setStatus('Enviando toque manual...', 'busy');
-    db.ref('manual').set(true).then(() => setStatus('¡Toque enviado! ✓', 'ok'))
-                              .catch(() => setStatus('Error al enviar', 'err'));
+    if (currentRole === 'normal') { toast('Sin permisos', 'warn'); return; }
+    db.ref('manual').set(true)
+        .then(() => { addLog('Toque manual enviado'); toast('¡Toque enviado! ✓', 'ok'); })
+        .catch(() => toast('Error', 'err'));
 }
 
-// Sincronizar: sube hora + ordena sync de horarios al ESP32
 function syncSystem() {
-    setStatus('Sincronizando...', 'busy');
-    const batch = {};
-    batch['hora_unix_ms']    = Date.now();  // Hora para el RTC
-    batch['comando_sync']    = true;        // Bajar horarios de nuevo
-    batch['comando_sync_hora'] = true;      // Forzar actualización de RTC
-    db.ref('/').update(batch)
-      .then(() => setStatus('Sincronización enviada ✓', 'ok'))
-      .catch(() => setStatus('Error de sincronización', 'err'));
+    db.ref('/').update({ hora_unix_ms: Date.now(), comando_sync: true, comando_sync_hora: true })
+        .then(() => { addLog('Sistema sincronizado'); toast('Sincronización enviada ✓', 'ok'); })
+        .catch(() => toast('Error', 'err'));
 }
 
-// Solo sincronizar hora del RTC
 function syncHora() {
-    setStatus('Actualizando hora...', 'busy');
-    db.ref('hora_unix_ms').set(Date.now()).then(() =>
-        db.ref('comando_sync_hora').set(true)
-    ).then(() => setStatus('Hora actualizada ✓', 'ok'))
-     .catch(() => setStatus('Error al actualizar hora', 'err'));
+    db.ref('hora_unix_ms').set(Date.now())
+        .then(() => db.ref('comando_sync_hora').set(true))
+        .then(() => { addLog('Hora sincronizada'); toast('Hora actualizada ✓', 'ok'); })
+        .catch(() => toast('Error', 'err'));
 }
 
-// Disparar sync de horarios en el ESP32 (sin hora)
 function triggerSync() {
     db.ref('hora_unix_ms').set(Date.now());
     db.ref('comando_sync').set(true);
 }
 
-// ══════════════════════════════════════════════
-//  BLUETOOTH HELPER (Web Bluetooth API)
-// ══════════════════════════════════════════════
+// ══════════════════════════════════════════
+//  BLUETOOTH
+// ══════════════════════════════════════════
 function toggleBT() {
-    const panel = document.getElementById('bt-panel');
-    const icon  = document.getElementById('bt-toggle-icon');
-    if (panel.style.display === 'block') {
-        panel.style.display = 'none';
-        icon.textContent = '▼';
-    } else {
-        panel.style.display = 'block';
-        icon.textContent = '▲';
-    }
+    const p = document.getElementById('bt-panel');
+    const i = document.getElementById('bt-toggle-icon');
+    if (p.style.display === 'block') { p.style.display = 'none'; i.textContent = '▼'; }
+    else                             { p.style.display = 'block'; i.textContent = '▲'; }
 }
 
 async function enviarCredencialesBT() {
-    const ssid = document.getElementById('bt-ssid').value.trim();
-    const pass = document.getElementById('bt-pass').value;
+    const ssid     = document.getElementById('bt-ssid').value.trim();
+    const pass     = document.getElementById('bt-pass').value;
     const btStatus = document.getElementById('bt-status');
-
     if (!ssid) { btStatus.textContent = 'ERROR: Ingresa el nombre de la red.'; return; }
     if (!navigator.bluetooth) {
         btStatus.textContent = 'Tu navegador no soporta Web Bluetooth. Usa Chrome en Android/PC.';
         return;
     }
-
     try {
         btStatus.textContent = 'Buscando ESP32 por Bluetooth...';
-        const device = await navigator.bluetooth.requestDevice({
+        const device  = await navigator.bluetooth.requestDevice({
             filters: [{ name: 'Timbre-ESP32' }],
             optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
         });
@@ -711,11 +1154,7 @@ async function enviarCredencialesBT() {
         const server  = await device.gatt.connect();
         const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
         const char    = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
-
-        const mensaje  = `${ssid}|${pass}\n`;
-        const encoder  = new TextEncoder();
-        await char.writeValue(encoder.encode(mensaje));
-
+        await char.writeValue(new TextEncoder().encode(`${ssid}|${pass}\n`));
         btStatus.textContent = `✓ Credenciales enviadas: ${ssid} | (contraseña oculta)`;
         setTimeout(() => device.gatt.disconnect(), 3000);
     } catch(e) {
