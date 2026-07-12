@@ -1,0 +1,48 @@
+{
+  "rules": {
+    "usuarios": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'admin'"
+      }
+    },
+
+    "registro": {
+      ".read": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'admin'",
+      ".write": "auth != null"
+    },
+
+    "timbres": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'admin'"
+    },
+
+    "estado_maestro": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'admin'"
+    },
+
+    "manual": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'admin'"
+    },
+
+    "comando_sync": {
+      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'admin'"
+    },
+
+    "hora_unix_ms": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "comando_sync_hora": {
+      ".write": "auth != null"
+    },
+
+    "ultima_conexion": {
+      ".read": "auth != null",
+      ".write": true
+    }
+  }
+}
