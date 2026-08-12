@@ -3,44 +3,49 @@
     "usuarios": {
       ".read": "auth != null",
       "$uid": {
+        ".write": "auth != null && (
+          (auth.uid === $uid && !data.exists() && newData.child('rol').val() === 'usuario' && newData.child('estado').val() === 'pendiente') ||
+          (root.child('usuarios').child(auth.uid).child('rol').val() === 'admin') ||
+          (auth.uid === $uid && newData.hasChildren(['ultimoAcceso']) && newData.child('rol').val() === data.child('rol').val() && newData.child('estado').val() === data.child('estado').val() && newData.child('activo').val() === data.child('activo').val())
+        )",
         "ultimoAcceso": {
           ".write": "auth != null && auth.uid === $uid"
-        },
-        ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'admin'"
+        }
       }
     },
 
     "registro": {
       ".read": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'admin'",
-      ".write": "auth != null"
+      ".write": "auth != null",
+      ".indexOn": ["timestamp", "uid", "accion"]
     },
 
     "timbres": {
       ".read": "auth != null",
-      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'admin'"
+      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'admin' && root.child('usuarios').child(auth.uid).child('activo').val() !== false && root.child('usuarios').child(auth.uid).child('estado').val() === 'aprobado'"
     },
 
     "estado_maestro": {
       ".read": "auth != null",
-      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'admin'"
+      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'admin' && root.child('usuarios').child(auth.uid).child('activo').val() !== false && root.child('usuarios').child(auth.uid).child('estado').val() === 'aprobado'"
     },
 
     "manual": {
       ".read": "auth != null",
-      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'admin'"
+      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'admin' && root.child('usuarios').child(auth.uid).child('activo').val() !== false && root.child('usuarios').child(auth.uid).child('estado').val() === 'aprobado'"
     },
 
     "comando_sync": {
-      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'admin'"
+      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('rol').val() === 'admin' && root.child('usuarios').child(auth.uid).child('activo').val() !== false"
     },
 
     "hora_unix_ms": {
       ".read": "auth != null",
-      ".write": "auth != null"
+      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('activo').val() !== false"
     },
 
     "comando_sync_hora": {
-      ".write": "auth != null"
+      ".write": "auth != null && root.child('usuarios').child(auth.uid).child('activo').val() !== false"
     },
 
     "ultima_conexion": {

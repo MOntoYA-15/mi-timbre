@@ -702,3 +702,99 @@ body::before {
     gap: 8px;
 }
 .modal-actions .btn { margin-top: 0; }
+
+/* ═══════════════════════════════════════════
+   v6.0 — Nuevos estilos
+   ═══════════════════════════════════════════ */
+
+/* Auth tabs (login / registro) */
+.auth-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 18px;
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 4px;
+}
+.auth-tab {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--textdim);
+    font-family: 'Syne', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 10px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.auth-tab.active {
+    background: var(--panel);
+    color: var(--accent);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.auth-tab:hover:not(.active) { color: var(--text); }
+
+#registro-msg, #error-msg {
+    font-size: 0.78rem;
+    margin: 10px 0 4px;
+    min-height: 1.2em;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1.35;
+}
+.msg-err { color: var(--danger); }
+.msg-ok  { color: var(--accent2); }
+.msg-busy { color: var(--muted); }
+
+/* Próximo toque en vivo */
+.proximo-card {
+    text-align: center;
+    padding: 20px 16px;
+}
+.proximo-live {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    margin: 6px 0 4px;
+}
+.proximo-countdown {
+    font-size: 0.85rem;
+    color: var(--textdim);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Badge de pendientes en nav */
+.nav-btn { position: relative; }
+.nav-badge {
+    position: absolute;
+    top: 4px;
+    right: 10px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 0.62rem;
+    font-weight: 700;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    font-family: 'JetBrains Mono', monospace;
+}
+.nav-badge.hidden { display: none; }
+
+/* Solicitudes pendientes */
+.pendiente-item {
+    border-left: 3px solid var(--pause);
+}
+.estado-pill.pending {
+    background: rgba(251, 146, 60, 0.15);
+    color: var(--pause);
+}
+
+/* Mejoras menores */
+.hidden { display: none !important; }

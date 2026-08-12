@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema Timbre</title>
+    <title>Sistema Timbre · Auto</title>
 
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -19,21 +19,44 @@
     <!-- ── HEADER ── -->
     <div class="header">
         <div class="logo">Timbre<span>·Auto</span></div>
-        <div class="version">v5.0</div>
+        <div class="version">v6.0</div>
     </div>
 
     <!-- ══════════════════════════════════ -->
-    <!--  LOGIN                            -->
+    <!--  LOGIN / REGISTRO                 -->
     <!-- ══════════════════════════════════ -->
     <div id="login-box" class="card">
-        <div class="login-title">Acceso</div>
-        <div class="login-sub">Sistema de Control de Timbre</div>
-        <div id="error-msg"></div>
-        <label>Correo</label>
-        <input type="email" id="user-email" placeholder="usuario@correo.com" autocomplete="email">
-        <label>Contraseña</label>
-        <input type="password" id="user-pass" placeholder="••••••••" autocomplete="current-password">
-        <button class="btn btn-yellow" onclick="handleLogin()">Entrar →</button>
+        <div class="auth-tabs">
+            <button type="button" class="auth-tab active" id="tab-login-btn" onclick="mostrarAuthTab('login')">Iniciar sesión</button>
+            <button type="button" class="auth-tab" id="tab-registro-btn" onclick="mostrarAuthTab('registro')">Crear cuenta</button>
+        </div>
+
+        <!-- LOGIN -->
+        <div id="auth-login">
+            <div class="login-title">Acceso</div>
+            <div class="login-sub">Sistema de Control de Timbre</div>
+            <div id="error-msg"></div>
+            <label>Correo</label>
+            <input type="email" id="user-email" placeholder="usuario@correo.com" autocomplete="email">
+            <label>Contraseña</label>
+            <input type="password" id="user-pass" placeholder="••••••••" autocomplete="current-password">
+            <button class="btn btn-yellow" onclick="handleLogin()">Entrar →</button>
+        </div>
+
+        <!-- REGISTRO -->
+        <div id="auth-registro" class="hidden">
+            <div class="login-title">Crear cuenta</div>
+            <div class="login-sub">Tu solicitud será revisada por un administrador</div>
+            <div id="registro-msg"></div>
+            <label>Correo</label>
+            <input type="email" id="reg-email" placeholder="usuario@correo.com" autocomplete="email">
+            <label>Contraseña (mín. 8 caracteres)</label>
+            <input type="password" id="reg-pass" placeholder="••••••••" autocomplete="new-password">
+            <label>Confirmar contraseña</label>
+            <input type="password" id="reg-pass2" placeholder="••••••••" autocomplete="new-password">
+            <button class="btn btn-yellow" onclick="handleRegistro()">Solicitar acceso →</button>
+            <p class="mini-nota" style="margin-top:12px;">Después de registrarte, un administrador debe aprobar tu cuenta antes de que puedas entrar.</p>
+        </div>
     </div>
 
     <!-- ══════════════════════════════════ -->
@@ -61,6 +84,13 @@
             <div id="device-status" class="st-offline">
                 <div class="status-dot"></div>
                 <span id="device-status-text">Verificando ESP32...</span>
+            </div>
+
+            <!-- Próximo toque en vivo (visible para todos) -->
+            <div class="card proximo-card">
+                <div class="section-title">Próximo toque</div>
+                <div id="proximo-live" class="proximo-live">--:--</div>
+                <div id="proximo-countdown" class="proximo-countdown">Calculando…</div>
             </div>
 
             <!-- Panel de resumen (solo admin) -->
@@ -184,6 +214,16 @@
         <!-- TAB: USUARIOS (solo admin) -->
         <!-- ══════════════════════════ -->
         <div id="tab-usuarios" class="tab-content">
+
+            <!-- Solicitudes pendientes -->
+            <div class="card" id="card-pendientes">
+                <div class="section-title">
+                    Solicitudes pendientes
+                    <b id="contador-pendientes">0</b>
+                </div>
+                <div id="lista-pendientes"></div>
+            </div>
+
             <div class="card">
                 <div class="section-title">
                     Usuarios del sistema
@@ -198,22 +238,24 @@
                         <option value="rol">Ordenar: Rol</option>
                         <option value="acceso">Ordenar: Último acceso</option>
                         <option value="creado">Ordenar: Fecha de creación</option>
+                        <option value="estado">Ordenar: Estado</option>
                     </select>
                 </div>
 
                 <div id="lista-usuarios"></div>
 
                 <div class="user-add-box">
+                    <div class="section-title" style="margin-bottom:10px;">Crear usuario directo (admin)</div>
                     <label>Correo del nuevo usuario</label>
                     <input type="email" id="nuevo-user-email" placeholder="nombre@correo.com">
-                    <label>Contraseña temporal</label>
-                    <input type="password" id="nuevo-user-pass" placeholder="Mínimo 6 caracteres">
+                    <label>Contraseña temporal (mín. 8)</label>
+                    <input type="password" id="nuevo-user-pass" placeholder="Mínimo 8 caracteres">
                     <label>Rol</label>
                     <select id="nuevo-user-rol">
                         <option value="usuario">Usuario normal</option>
                         <option value="admin">Administrador</option>
                     </select>
-                    <button class="btn btn-yellow" onclick="crearUsuario()">+ Crear usuario</button>
+                    <button class="btn btn-yellow" onclick="crearUsuario()">+ Crear usuario aprobado</button>
                     <div id="user-status" style="font-size:0.75rem;color:var(--muted);margin-top:8px;font-family:'JetBrains Mono',monospace;"></div>
                 </div>
             </div>
@@ -234,6 +276,9 @@
                         <option value="">Todas las acciones</option>
                         <option value="inicio_sesion">Inicios de sesión</option>
                         <option value="cierre_sesion">Cierres de sesión</option>
+                        <option value="solicitud_registro">Solicitudes de registro</option>
+                        <option value="usuario_aprobado">Usuarios aprobados</option>
+                        <option value="usuario_rechazado">Usuarios rechazados</option>
                         <option value="horario_agregado">Horarios agregados</option>
                         <option value="horario_editado">Horarios editados</option>
                         <option value="horario_eliminado">Horarios eliminados</option>
@@ -244,6 +289,7 @@
                         <option value="usuario_activado">Usuarios activados</option>
                         <option value="usuario_desactivado">Usuarios desactivados</option>
                         <option value="password_reset_enviado">Reseteo de contraseña</option>
+                        <option value="respaldo_descargado">Respaldos</option>
                     </select>
                     <select id="filtro-usuario" onchange="pintarRegistro()">
                         <option value="">Todos los usuarios</option>
@@ -283,7 +329,6 @@
                 <p style="font-size:0.68rem;color:var(--muted);margin-top:10px;line-height:1.4;">
                     ¿No te llega el correo? Casi siempre cae en <b>spam/correo no deseado</b>, porque lo envía
                     <span style="color:var(--textdim)">noreply@sistematimbre.firebaseapp.com</span>. Revisa esa carpeta primero.
-                    Si el botón muestra un error específico, anótalo — te dice la causa real.
                 </p>
             </div>
 
@@ -316,6 +361,7 @@
             </button>
             <button class="nav-btn" data-tab="usuarios" onclick="mostrarTab('usuarios')">
                 <span class="nav-icon">👥</span><span>Usuarios</span>
+                <span id="badge-pendientes" class="nav-badge hidden">0</span>
             </button>
             <button class="nav-btn" data-tab="registro" onclick="mostrarTab('registro')">
                 <span class="nav-icon">📋</span><span>Registro</span>

@@ -1,6 +1,5 @@
 // ══════════════════════════════════════════════
-//  FIREBASE CONFIG
-//  (usado también por users.js)
+//  FIREBASE CONFIG  (v6.0)
 // ══════════════════════════════════════════════
 const firebaseConfig = {
     apiKey:      "AIzaSyAbTb-cXeJmmPprRaVTqSyBiEyoEGv93f0",
@@ -25,10 +24,10 @@ let horariosCache = [];
 let registroCache = [];
 let registroLimite = 80;
 
-// Monitoreo de conexión (vive solo mientras la pestaña está abierta)
+// Monitoreo de conexión
 let dispositivoOnline = false;
-let historialConexion = [];       // muestras {ts, online} para la línea de tiempo
-let eventosDesconexion = [];      // eventos completados {inicio, fin, duracionSeg}
+let historialConexion = [];
+let eventosDesconexion = [];
 let inicioDesconexionActual = null;
 let notifDesconexionActivas = false;
 let monitorTimer = null;
@@ -46,8 +45,30 @@ function mostrarTab(nombre) {
     if (btn) btn.classList.add('active');
 }
 
+function mostrarAuthTab(tipo) {
+    const loginDiv = document.getElementById('auth-login');
+    const regDiv   = document.getElementById('auth-registro');
+    const btnLogin = document.getElementById('tab-login-btn');
+    const btnReg   = document.getElementById('tab-registro-btn');
+
+    document.getElementById('error-msg').textContent = '';
+    document.getElementById('registro-msg').textContent = '';
+
+    if (tipo === 'login') {
+        loginDiv.classList.remove('hidden');
+        regDiv.classList.add('hidden');
+        btnLogin.classList.add('active');
+        btnReg.classList.remove('active');
+    } else {
+        loginDiv.classList.add('hidden');
+        regDiv.classList.remove('hidden');
+        btnLogin.classList.remove('active');
+        btnReg.classList.add('active');
+    }
+}
+
 // ══════════════════════════════════════════════
-//  MODAL DE CONFIRMACIÓN (reemplaza confirm() nativo)
+//  MODAL DE CONFIRMACIÓN
 // ══════════════════════════════════════════════
 let modalCallback = null;
 
@@ -74,9 +95,57 @@ function actualizarReloj() {
     const pad = n => String(n).padStart(2, '0');
     document.getElementById('hora-local').textContent =
         `${pad(ahora.getHours())}:${pad(ahora.getMinutes())}:${pad(ahora.getSeconds())}`;
+    actualizarProximoLive();
 }
 setInterval(actualizarReloj, 1000);
 actualizarReloj();
+
+// ── Próximo toque en vivo ────────────────────
+function actualizarProximoLive() {
+    const elHora = document.getElementById('proximo-live');
+    const elCd   = document.getElementById('proximo-countdown');
+    if (!elHora || !elCd) return;
+
+    if (!estadoMaestro) {
+        elHora.textContent = 'PAUSADO';
+        elCd.textContent = 'El sistema está pausado';
+        return;
+    }
+    if (horariosCache.length === 0) {
+        elHora.textContent = '--:--';
+        elCd.textContent = 'Sin horarios configurados';
+        return;
+    }
+
+    const ahora = new Date();
+    const minAhora = ahora.getHours() * 60 + ahora.getMinutes();
+    const segAhora = ahora.getSeconds();
+    const minutos = horariosCache.map(t => t.h * 60 + t.m);
+    const futuros = minutos.filter(m => m > minAhora || (m === minAhora && segAhora === 0)).sort((a, b) => a - b);
+    const proximoMin = futuros.length ? futuros[0] : Math.min(...minutos) + 24 * 60;
+
+    const h = Math.floor((proximoMin % (24 * 60)) / 60);
+    const m = (proximoMin % (24 * 60)) % 60;
+    elHora.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+
+    let diffMin = proximoMin - minAhora;
+    if (diffMin < 0) diffMin += 24 * 60;
+    const totalSeg = diffMin * 60 - segAhora;
+    if (totalSeg <= 0) {
+        elCd.textContent = '¡Ahora!';
+        return;
+    }
+    const hrs = Math.floor(totalSeg / 3600);
+    const mins = Math.floor((totalSeg % 3600) / 60);
+    const segs = totalSeg % 60;
+    if (hrs > 0) {
+        elCd.textContent = `En ${hrs}h ${mins}m ${segs}s`;
+    } else if (mins > 0) {
+        elCd.textContent = `En ${mins}m ${segs}s`;
+    } else {
+        elCd.textContent = `En ${segs}s`;
+    }
+}
 
 // ── Sincronización automática de hora (cada 24h) ─
 function programarSyncHora() {
@@ -113,6 +182,9 @@ function registrarAccion(accion, detalle = '') {
 const ETIQUETAS_ACCION = {
     inicio_sesion: 'inició sesión',
     cierre_sesion: 'cerró sesión',
+    solicitud_registro: 'solicitó registro',
+    usuario_aprobado: 'aprobó un usuario',
+    usuario_rechazado: 'rechazó un usuario',
     horario_agregado: 'agregó un horario',
     horario_editado: 'editó un horario',
     horario_eliminado: 'eliminó un horario',
@@ -224,7 +296,7 @@ function descargarCSV(filas, nombreArchivo) {
 }
 
 // ══════════════════════════════════════════════
-//  AUTH
+//  AUTH + REGISTRO CON APROBACIÓN
 // ══════════════════════════════════════════════
 auth.onAuthStateChanged(user => {
     if (user) {
@@ -237,9 +309,34 @@ auth.onAuthStateChanged(user => {
                 auth.signOut();
                 return;
             }
+
+            // Estado pendiente → no dejar entrar
+            if (perfil.estado === 'pendiente') {
+                document.getElementById('error-msg').textContent =
+                    'Tu solicitud está pendiente de aprobación. Un administrador debe autorizarte.';
+                auth.signOut();
+                return;
+            }
+
+            if (perfil.estado === 'rechazado') {
+                document.getElementById('error-msg').textContent =
+                    'Tu solicitud de acceso fue rechazada. Contacta a un administrador.';
+                auth.signOut();
+                return;
+            }
+
             if (perfil.activo === false) {
                 document.getElementById('error-msg').textContent =
                     'Tu acceso ha sido desactivado. Contacta a un administrador.';
+                auth.signOut();
+                return;
+            }
+
+            // Solo estados aprobados (o legados sin campo estado)
+            const estadoOk = !perfil.estado || perfil.estado === 'aprobado';
+            if (!estadoOk) {
+                document.getElementById('error-msg').textContent =
+                    'Tu cuenta no tiene acceso autorizado.';
                 auth.signOut();
                 return;
             }
@@ -271,8 +368,6 @@ auth.onAuthStateChanged(user => {
                 iniciarMonitoreo();
             }
 
-            // Registra el último acceso del propio usuario (permitido por reglas
-            // porque cada quien puede escribir solo su propio campo ultimoAcceso)
             db.ref('usuarios/' + currentUID + '/ultimoAcceso').set(Date.now()).catch(() => {});
 
             subirTimestampHora();
@@ -287,9 +382,6 @@ auth.onAuthStateChanged(user => {
         currentUID = null; currentEmail = null; currentRol = null;
         document.getElementById('login-box').classList.remove('hidden');
         document.getElementById('panel-box').classList.add('hidden');
-        // El mensaje de error NO se limpia aquí a propósito: si se hiciera,
-        // desaparecería de inmediato porque signOut() dispara este bloque
-        // justo después de mostrarlo. Se limpia solo al reintentar login.
     }
 });
 
@@ -297,9 +389,88 @@ function handleLogin() {
     const email = document.getElementById('user-email').value.trim();
     const pass  = document.getElementById('user-pass').value;
     document.getElementById('error-msg').textContent = '';
-    auth.signInWithEmailAndPassword(email, pass).catch(() => {
-        document.getElementById('error-msg').textContent = 'Correo o contraseña incorrectos.';
+
+    if (!email || !pass) {
+        document.getElementById('error-msg').textContent = 'Completa correo y contraseña.';
+        return;
+    }
+
+    auth.signInWithEmailAndPassword(email, pass).catch(err => {
+        const msg = err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-email'
+            ? 'Correo o contraseña incorrectos.'
+            : (err.code === 'auth/too-many-requests' ? 'Demasiados intentos. Espera unos minutos.' : 'Error al iniciar sesión.');
+        document.getElementById('error-msg').textContent = msg;
     });
+}
+
+function handleRegistro() {
+    const email = document.getElementById('reg-email').value.trim();
+    const pass  = document.getElementById('reg-pass').value;
+    const pass2 = document.getElementById('reg-pass2').value;
+    const msgEl = document.getElementById('registro-msg');
+
+    msgEl.textContent = '';
+    msgEl.className = '';
+
+    if (!email || !pass || !pass2) {
+        msgEl.textContent = 'Completa todos los campos.';
+        msgEl.className = 'msg-err';
+        return;
+    }
+    if (pass.length < 8) {
+        msgEl.textContent = 'La contraseña debe tener al menos 8 caracteres.';
+        msgEl.className = 'msg-err';
+        return;
+    }
+    if (pass !== pass2) {
+        msgEl.textContent = 'Las contraseñas no coinciden.';
+        msgEl.className = 'msg-err';
+        return;
+    }
+
+    msgEl.textContent = 'Creando solicitud...';
+    msgEl.className = 'msg-busy';
+
+    // Crear cuenta con una app secundaria para no afectar la sesión actual
+    const nombreApp = 'Registro_' + Date.now();
+    const appSec = firebase.initializeApp(firebaseConfig, nombreApp);
+
+    appSec.auth().createUserWithEmailAndPassword(email, pass)
+        .then(cred => {
+            const uid = cred.user.uid;
+            return db.ref('usuarios/' + uid).set({
+                email,
+                rol: 'usuario',
+                estado: 'pendiente',
+                activo: false,
+                creado: Date.now(),
+                creadoPor: 'auto-registro'
+            }).then(() => {
+                // Registrar en bitácora (sin sesión real)
+                return db.ref('registro').push({
+                    uid,
+                    email,
+                    accion: 'solicitud_registro',
+                    detalle: 'Solicitud de acceso pendiente de aprobación',
+                    timestamp: Date.now()
+                });
+            });
+        })
+        .then(() => {
+            msgEl.textContent = '✓ Solicitud enviada. Un administrador debe aprobar tu cuenta antes de que puedas entrar.';
+            msgEl.className = 'msg-ok';
+            document.getElementById('reg-email').value = '';
+            document.getElementById('reg-pass').value = '';
+            document.getElementById('reg-pass2').value = '';
+        })
+        .catch(err => {
+            console.error(err);
+            msgEl.textContent = 'Error: ' + traducirErrorAuth(err.code);
+            msgEl.className = 'msg-err';
+        })
+        .finally(() => {
+            appSec.auth().signOut().finally(() => appSec.delete());
+        });
 }
 
 function handleLogout() {
@@ -330,6 +501,16 @@ function traducirErrorReset(code) {
     return mapa[code] || `Error de Firebase: ${code || 'desconocido'}`;
 }
 
+function traducirErrorAuth(code) {
+    const mapa = {
+        'auth/email-already-in-use': 'Ese correo ya está registrado.',
+        'auth/invalid-email': 'Correo inválido.',
+        'auth/weak-password': 'La contraseña es muy débil (mínimo 8 caracteres).',
+        'auth/operation-not-allowed': 'El registro por correo no está habilitado en Firebase.'
+    };
+    return mapa[code] || code || 'error desconocido';
+}
+
 // ══════════════════════════════════════════════
 //  LISTENERS EN TIEMPO REAL
 // ══════════════════════════════════════════════
@@ -350,6 +531,7 @@ function startListening() {
         const stat = document.getElementById('stat-estado-sistema');
         if (stat) stat.textContent = estadoMaestro ? 'Activo' : 'Pausado';
         actualizarDashboard();
+        actualizarProximoLive();
         if (typeof actualizarMonitoreo === 'function') actualizarMonitoreo();
     });
 
@@ -364,6 +546,7 @@ function startListening() {
         }
         pintarHorarios();
         actualizarDashboard();
+        actualizarProximoLive();
         if (typeof actualizarMonitoreo === 'function') actualizarMonitoreo();
     });
 
@@ -396,7 +579,7 @@ function startListening() {
 }
 
 // ══════════════════════════════════════════════
-//  DASHBOARD (tarjetas de resumen, solo admin)
+//  DASHBOARD
 // ══════════════════════════════════════════════
 function actualizarDashboard() {
     if (currentRol !== 'admin') return;
@@ -421,7 +604,7 @@ function actualizarDashboard() {
 }
 
 // ══════════════════════════════════════════════
-//  MONITOREO AVANZADO (solo admin, vive en la sesión)
+//  MONITOREO AVANZADO
 // ══════════════════════════════════════════════
 function iniciarMonitoreo() {
     if (monitorTimer) clearInterval(monitorTimer);
@@ -436,14 +619,12 @@ function monitorTick() {
     historialConexion.push({ ts: ahora, online: dispositivoOnline });
     if (historialConexion.length > 80) historialConexion.shift();
 
-    // Detectar transición: pasó de en línea a desconectado
     if (anterior && anterior.online && !dispositivoOnline) {
         inicioDesconexionActual = ahora;
         if (notifDesconexionActivas && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
             new Notification('⚠️ ESP32 desconectado', { body: 'El sistema de timbre perdió conexión con el dispositivo.' });
         }
     }
-    // Detectar transición: volvió a conectarse
     if (anterior && !anterior.online && dispositivoOnline && inicioDesconexionActual) {
         const duracionSeg = Math.round((ahora - inicioDesconexionActual) / 1000);
         eventosDesconexion.unshift({ inicio: inicioDesconexionActual, duracionSeg });
@@ -478,7 +659,6 @@ function toggleNotificaciones(activo) {
 function actualizarMonitoreo() {
     if (currentRol !== 'admin') return;
 
-    // ── Salud del sistema ──
     const badge   = document.getElementById('salud-badge');
     const detalle = document.getElementById('salud-detalle');
     const razones = [];
@@ -501,7 +681,6 @@ function actualizarMonitoreo() {
         detalle.innerHTML = razones.map(r => `<li class="${r.mal ? 'mal' : 'bien'}">${r.mal ? '✕' : '✓'} ${r.txt}</li>`).join('');
     }
 
-    // ── Disponibilidad y línea de tiempo ──
     const total   = historialConexion.length;
     const enLinea = historialConexion.filter(s => s.online).length;
     const pct     = total ? Math.round((enLinea / total) * 100) : 0;
@@ -515,7 +694,6 @@ function actualizarMonitoreo() {
         ).join('');
     }
 
-    // ── Desconexiones recientes ──
     const listaDes = document.getElementById('lista-desconexiones');
     if (listaDes) {
         if (eventosDesconexion.length === 0) {
@@ -529,7 +707,6 @@ function actualizarMonitoreo() {
         }
     }
 
-    // ── Gráfico de actividad (últimos 7 días), a partir del registro cargado ──
     const grafico = document.getElementById('grafico-actividad');
     if (grafico) {
         const dias = [];
@@ -555,7 +732,6 @@ function actualizarMonitoreo() {
             </div>`).join('');
     }
 
-    // ── Acciones más frecuentes (del registro cargado) ──
     const topEl = document.getElementById('top-acciones');
     if (topEl) {
         const conteo = {};
@@ -568,7 +744,7 @@ function actualizarMonitoreo() {
 }
 
 // ══════════════════════════════════════════════
-//  HORARIOS (todo dentro de la pestaña "Timbre")
+//  HORARIOS
 // ══════════════════════════════════════════════
 function pintarHorarios() {
     const listDiv = document.getElementById('lista-toques');
@@ -666,8 +842,7 @@ function saveEdit(id) {
 }
 
 // ══════════════════════════════════════════════
-//  ACCIONES (protegidas también por reglas de Firebase,
-//  ver reglas-seguridad.json)
+//  ACCIONES
 // ══════════════════════════════════════════════
 function setStatus(msg, tipo = '') {
     const el = document.getElementById('status-bar');
@@ -709,7 +884,6 @@ function syncSystem() {
     }).catch(() => setStatus('Error de sincronización', 'err'));
 }
 
-// Disponible para TODOS los roles (admin y usuario normal)
 function syncHora() {
     setStatus('Actualizando hora...', 'busy');
     db.ref('hora_unix_ms').set(Date.now())
@@ -727,7 +901,7 @@ function triggerSync() {
 }
 
 // ══════════════════════════════════════════════
-//  BLUETOOTH HELPER (Web Bluetooth API) — solo admin
+//  BLUETOOTH
 // ══════════════════════════════════════════════
 function toggleBT() {
     const panel = document.getElementById('bt-panel');
@@ -778,7 +952,7 @@ async function enviarCredencialesBT() {
 }
 
 // ══════════════════════════════════════════════
-//  SISTEMA: respaldo e información general
+//  SISTEMA
 // ══════════════════════════════════════════════
 function descargarRespaldo() {
     if (currentRol !== 'admin') return;
@@ -792,6 +966,7 @@ function descargarRespaldo() {
     ]).then(([timbresSnap, usuariosSnap, registroSnap, estadoSnap]) => {
         const respaldo = {
             fecha_respaldo: new Date().toISOString(),
+            version: '6.0',
             estado_maestro: estadoSnap.val(),
             timbres: timbresSnap.val() || {},
             usuarios: usuariosSnap.val() || {},
@@ -813,7 +988,7 @@ function pintarInfoSistema() {
     const el = document.getElementById('info-sistema');
     if (!el) return;
     el.innerHTML = `
-        <span>Versión: <b>v5.0</b></span>
+        <span>Versión: <b>v6.0</b></span>
         <span>Horarios: <b>${horariosCache.length}</b></span>
         <span>Usuarios: <b>${typeof usuariosCache !== 'undefined' ? usuariosCache.length : '—'}</b></span>`;
 }
