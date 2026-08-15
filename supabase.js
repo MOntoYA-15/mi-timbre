@@ -5,7 +5,8 @@
 const SUPABASE_URL = 'https://kzqdjxzobuiqxihefuni.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_CLP73Z8_iBpsFwyFNMuCUQ_vSlmmvE8';
 
-let supabase = null;
+// OJO: no se puede llamar "supabase" porque el CDN ya usa ese nombre global
+let supabaseClient = null;
 
 function initSupabase() {
     if (typeof window.supabase === 'undefined' || typeof window.supabase.createClient !== 'function') {
@@ -17,7 +18,7 @@ function initSupabase() {
         return false;
     }
     try {
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         console.log('[Supabase] Cliente inicializado OK');
         return true;
     } catch (e) {
@@ -26,11 +27,8 @@ function initSupabase() {
     }
 }
 
-/**
- * Guarda una acción en el historial de Supabase.
- */
 async function guardarEnHistorial(accion, detalle = '', extra = {}) {
-    if (!supabase) {
+    if (!supabaseClient) {
         if (!initSupabase()) {
             console.error('[Supabase] No se pudo inicializar al guardar');
             return;
@@ -50,7 +48,7 @@ async function guardarEnHistorial(accion, detalle = '', extra = {}) {
     console.log('[Supabase] Guardando:', fila);
 
     try {
-        const { data, error } = await supabase.from('historial').insert([fila]).select();
+        const { data, error } = await supabaseClient.from('historial').insert([fila]).select();
         if (error) {
             console.error('[Supabase] Error INSERT:', error.message, error);
             if (typeof setStatus === 'function') {
@@ -67,15 +65,12 @@ async function guardarEnHistorial(accion, detalle = '', extra = {}) {
     }
 }
 
-/**
- * Carga el historial desde Supabase.
- */
 async function cargarHistorialSupabase(limite = 80, filtros = {}) {
-    if (!supabase) {
+    if (!supabaseClient) {
         if (!initSupabase()) return [];
     }
 
-    let query = supabase
+    let query = supabaseClient
         .from('historial')
         .select('*')
         .order('created_at', { ascending: false })
@@ -105,24 +100,21 @@ async function cargarHistorialSupabase(limite = 80, filtros = {}) {
 }
 
 async function guardarDesconexion(duracionSeg, inicioTs) {
-    await guardarEnHistorial('desconexion_esp32', `Duración: ${duracionSeg}s`, {
+    await guardarEnHistorial('desconexion_esp32', 'Duración: ' + duracionSeg + 's', {
         tipo: 'desconexion',
         duracion_seg: duracionSeg,
         metadata: { inicio: inicioTs || null }
     });
 }
 
-/**
- * Prueba rápida: escribe una fila de test y la muestra en consola.
- * Puedes llamar esto desde la consola del navegador: probarSupabase()
- */
+/** Prueba desde la consola: probarSupabase() */
 async function probarSupabase() {
     if (!initSupabase()) {
         alert('No se pudo inicializar Supabase. Mira la consola (F12).');
         return;
     }
     console.log('[Supabase] Probando INSERT...');
-    const { data, error } = await supabase.from('historial').insert([{
+    const { data, error } = await supabaseClient.from('historial').insert([{
         accion: 'prueba_consola',
         detalle: 'Test manual desde el navegador',
         tipo: 'accion',
@@ -131,14 +123,13 @@ async function probarSupabase() {
 
     if (error) {
         console.error('[Supabase] FALLO:', error);
-        alert('Error: ' + error.message + '\n\nMira la consola (F12) para más detalle.');
+        alert('Error: ' + error.message);
     } else {
-        console.log('[Supabase] ÉXITO:', data);
-        alert('¡Funciona! Se guardó en Supabase. Revisa Table Editor → historial');
+        console.log('[Supabase] EXITO:', data);
+        alert('Funciona! Se guardo en Supabase. Revisa Table Editor → historial');
     }
 }
 
-// Inicializar al cargar
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function () {
     initSupabase();
 });
