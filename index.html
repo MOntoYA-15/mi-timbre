@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Timbre · Auto</title>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+    <!-- ── HEADER ── -->
+    <div class="header">
+        <div class="logo">Timbre<span>·Auto</span></div>
+        <div class="version">v6.1</div>
+    </div>
+
+    <!-- ══════════════════════════════════ -->
+    <!--  LOGIN / REGISTRO                 -->
+    <!-- ══════════════════════════════════ -->
+    <div id="login-box" class="card">
+        <div class="auth-tabs">
+            <button type="button" class="auth-tab active" id="tab-login-btn" onclick="mostrarAuthTab('login')">Iniciar sesión</button>
+            <button type="button" class="auth-tab" id="tab-registro-btn" onclick="mostrarAuthTab('registro')">Crear cuenta</button>
+        </div>
+
+        <!-- LOGIN -->
+        <div id="auth-login">
+            <div class="login-title">Acceso</div>
+            <div class="login-sub">Sistema de Control de Timbre</div>
+            <div id="error-msg"></div>
+            <label>Correo</label>
+            <input type="email" id="user-email" placeholder="usuario@correo.com" autocomplete="email">
+            <label>Contraseña</label>
+            <input type="password" id="user-pass" placeholder="••••••••" autocomplete="current-password">
+            <button class="btn btn-yellow" onclick="handleLogin()">Entrar →</button>
+        </div>
+
+        <!-- REGISTRO -->
+        <div id="auth-registro" class="hidden">
+            <div class="login-title">Crear cuenta</div>
+            <div class="login-sub">Tu solicitud será revisada por un administrador</div>
+            <div id="registro-msg"></div>
+            <label>Correo</label>
+            <input type="email" id="reg-email" placeholder="usuario@correo.com" autocomplete="email">
+            <label>Contraseña (mín. 8 caracteres)</label>
+            <input type="password" id="reg-pass" placeholder="••••••••" autocomplete="new-password">
+            <label>Confirmar contraseña</label>
+            <input type="password" id="reg-pass2" placeholder="••••••••" autocomplete="new-password">
+            <button class="btn btn-yellow" onclick="handleRegistro()">Solicitar acceso →</button>
+            <p class="mini-nota" style="margin-top:12px;">Después de registrarte, un administrador debe aprobar tu cuenta antes de que puedas entrar.</p>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════ -->
+    <!--  PANEL PRINCIPAL                  -->
+    <!-- ══════════════════════════════════ -->
+    <div id="panel-box" class="hidden">
+
+        <!-- Top row -->
+        <div class="top-row">
+            <span class="user-info">
+                <span id="user-email-display"></span>
+                <span id="user-role-badge" class="role-badge"></span>
+            </span>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <span id="hora-local"></span>
+                <button class="btn btn-ghost btn-sm" onclick="handleLogout()">Salir</button>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════ -->
+        <!-- TAB: INICIO (todos los roles) -->
+        <!-- ══════════════════════════ -->
+        <div id="tab-inicio" class="tab-content active">
+
+            <div id="device-status" class="st-offline">
+                <div class="status-dot"></div>
+                <span id="device-status-text">Verificando ESP32...</span>
+            </div>
+
+            <!-- Próximo toque en vivo (visible para todos) -->
+            <div class="card proximo-card">
+                <div class="section-title">Próximo toque</div>
+                <div id="proximo-live" class="proximo-live">--:--</div>
+                <div id="proximo-countdown" class="proximo-countdown">Calculando…</div>
+            </div>
+
+            <!-- Panel de resumen (solo admin) -->
+            <div id="dashboard-stats" class="stats-grid hidden">
+                <div class="stat-card">
+                    <span class="stat-label">Próximo toque</span>
+                    <span class="stat-value" id="stat-proximo">--:--</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Horarios activos</span>
+                    <span class="stat-value" id="stat-total-horarios">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Usuarios activos</span>
+                    <span class="stat-value" id="stat-usuarios-activos">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Sistema</span>
+                    <span class="stat-value" id="stat-estado-sistema">--</span>
+                </div>
+            </div>
+
+            <div class="card" style="padding:16px;">
+                <button class="btn btn-ghost" onclick="syncHora()">🕐 Actualizar Hora del ESP32</button>
+            </div>
+
+            <!-- ══════════════════════ -->
+            <!-- MONITOREO AVANZADO (solo admin) -->
+            <!-- ══════════════════════ -->
+            <div id="monitoreo-avanzado" class="hidden">
+
+                <div class="card">
+                    <div class="section-title">Salud del sistema</div>
+                    <div id="salud-badge" class="salud-badge">Calculando…</div>
+                    <ul id="salud-detalle" class="salud-detalle"></ul>
+                </div>
+
+                <div class="card">
+                    <div class="section-title">
+                        Disponibilidad de esta sesión
+                        <b id="uptime-porcentaje">--%</b>
+                    </div>
+                    <div id="linea-tiempo" class="linea-tiempo"></div>
+                    <p class="mini-nota">Se calcula solo mientras esta pantalla permanece abierta — no es un monitoreo externo 24/7.</p>
+                    <label class="switch-row">
+                        <input type="checkbox" id="notif-desconexion" onchange="toggleNotificaciones(this.checked)">
+                        🔔 Avisarme (notificación del navegador) si el ESP32 se desconecta
+                    </label>
+                </div>
+
+                <div class="card">
+                    <div class="section-title">Desconexiones detectadas</div>
+                    <div id="lista-desconexiones"></div>
+                </div>
+
+                <div class="card">
+                    <div class="section-title">Actividad — últimos 7 días</div>
+                    <div id="grafico-actividad" class="grafico-barras"></div>
+                </div>
+
+                <div class="card">
+                    <div class="section-title">Acciones más frecuentes</div>
+                    <div id="top-acciones"></div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════ -->
+        <!-- TAB: TIMBRE — TODO lo operativo (solo admin) -->
+        <!-- ══════════════════════════════════════ -->
+        <div id="tab-timbre" class="tab-content">
+
+            <!-- Estado maestro + acciones rápidas -->
+            <div class="card" style="padding:16px;">
+                <button id="btn-maestro" class="btn btn-green" onclick="toggleMaestro()">Cargando…</button>
+                <div class="actions-grid">
+                    <button class="btn btn-red" onclick="manualRing()">⚡ Toque Manual</button>
+                    <button class="btn btn-purple" onclick="syncSystem()">⟳ Sincronizar Todo</button>
+                </div>
+            </div>
+
+            <!-- Horarios -->
+            <div class="card">
+                <div class="section-title">
+                    Horarios programados
+                    <b id="contador-horarios">0</b>
+                </div>
+                <div id="resumen-horarios" class="mini-resumen"></div>
+
+                <input type="text" id="buscar-horario" class="search-input" placeholder="🔍 Buscar hora, ej. 07:4">
+
+                <div id="lista-toques"></div>
+
+                <div class="add-row" style="margin-top:12px;">
+                    <input type="time" id="nuevo-horario">
+                    <button class="btn btn-yellow btn-sm" onclick="addTime()">+ Agregar</button>
+                </div>
+            </div>
+
+            <!-- Bluetooth helper -->
+            <div class="card" style="padding:16px;">
+                <div class="section-title" style="cursor:pointer;" onclick="toggleBT()">
+                    Configurar WiFi por Bluetooth <span id="bt-toggle-icon">▼</span>
+                </div>
+                <div id="bt-panel">
+                    <p style="font-size:0.78rem;color:var(--textdim);margin-bottom:10px;">
+                        Si el ESP32 perdió conexión, conecta tu dispositivo por Bluetooth a <b style="color:var(--accent)">Timbre-ESP32</b> y envía las credenciales con el botón de abajo.
+                    </p>
+                    <input type="text"     id="bt-ssid" placeholder="Nombre de la red WiFi (SSID)">
+                    <input type="password" id="bt-pass" placeholder="Contraseña del WiFi">
+                    <button class="btn btn-purple" style="margin-top:6px;" onclick="enviarCredencialesBT()">
+                        Enviar por Bluetooth
+                    </button>
+                    <div id="bt-status" style="font-size:0.75rem;color:var(--muted);margin-top:8px;font-family:'JetBrains Mono',monospace;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════ -->
+        <!-- TAB: USUARIOS (solo admin) -->
+        <!-- ══════════════════════════ -->
+        <div id="tab-usuarios" class="tab-content">
+
+            <!-- Solicitudes pendientes -->
+            <div class="card" id="card-pendientes">
+                <div class="section-title">
+                    Solicitudes pendientes
+                    <b id="contador-pendientes">0</b>
+                </div>
+                <div id="lista-pendientes"></div>
+            </div>
+
+            <div class="card">
+                <div class="section-title">
+                    Usuarios del sistema
+                    <b id="contador-usuarios">0</b>
+                </div>
+                <div id="resumen-usuarios" class="mini-resumen"></div>
+
+                <div class="filtro-row">
+                    <input type="text" id="buscar-usuario" class="search-input" placeholder="🔍 Buscar por correo">
+                    <select id="orden-usuarios" onchange="pintarUsuarios()">
+                        <option value="correo">Ordenar: Correo</option>
+                        <option value="rol">Ordenar: Rol</option>
+                        <option value="acceso">Ordenar: Último acceso</option>
+                        <option value="creado">Ordenar: Fecha de creación</option>
+                        <option value="estado">Ordenar: Estado</option>
+                    </select>
+                </div>
+
+                <div id="lista-usuarios"></div>
+
+                <div class="user-add-box">
+                    <div class="section-title" style="margin-bottom:10px;">Crear usuario directo (admin)</div>
+                    <label>Correo del nuevo usuario</label>
+                    <input type="email" id="nuevo-user-email" placeholder="nombre@correo.com">
+                    <label>Contraseña temporal (mín. 8)</label>
+                    <input type="password" id="nuevo-user-pass" placeholder="Mínimo 8 caracteres">
+                    <label>Rol</label>
+                    <select id="nuevo-user-rol">
+                        <option value="usuario">Usuario normal</option>
+                        <option value="admin">Administrador</option>
+                    </select>
+                    <button class="btn btn-yellow" onclick="crearUsuario()">+ Crear usuario aprobado</button>
+                    <div id="user-status" style="font-size:0.75rem;color:var(--muted);margin-top:8px;font-family:'JetBrains Mono',monospace;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════ -->
+        <!-- TAB: REGISTRO (solo admin) -->
+        <!-- ══════════════════════════ -->
+        <div id="tab-registro" class="tab-content">
+            <div class="card">
+                <div class="section-title">
+                    Registro de actividad
+                    <b id="contador-registro">0</b>
+                </div>
+
+                <div class="filtro-row">
+                    <select id="filtro-accion" onchange="renderRegistro()">
+                        <option value="">Todas las acciones</option>
+                        <option value="inicio_sesion">Inicios de sesión</option>
+                        <option value="cierre_sesion">Cierres de sesión</option>
+                        <option value="solicitud_registro">Solicitudes de registro</option>
+                        <option value="usuario_aprobado">Usuarios aprobados</option>
+                        <option value="usuario_rechazado">Usuarios rechazados</option>
+                        <option value="horario_agregado">Horarios agregados</option>
+                        <option value="horario_editado">Horarios editados</option>
+                        <option value="horario_eliminado">Horarios eliminados</option>
+                        <option value="toque_manual">Toques manuales</option>
+                        <option value="estado_maestro">Cambios de estado</option>
+                        <option value="usuario_creado">Usuarios creados</option>
+                        <option value="rol_cambiado">Cambios de rol</option>
+                        <option value="usuario_activado">Usuarios activados</option>
+                        <option value="usuario_desactivado">Usuarios desactivados</option>
+                        <option value="password_reset_enviado">Reseteo de contraseña</option>
+                        <option value="respaldo_descargado">Respaldos</option>
+                        <option value="desconexion_esp32">Desconexiones ESP32</option>
+                    </select>
+                    <select id="filtro-usuario" onchange="renderRegistro()">
+                        <option value="">Todos los usuarios</option>
+                    </select>
+                </div>
+                <div class="filtro-row">
+                    <div style="flex:1;">
+                        <label class="mini-label">Desde</label>
+                        <input type="date" id="filtro-desde" class="search-input" onchange="renderRegistro()">
+                    </div>
+                    <div style="flex:1;">
+                        <label class="mini-label">Hasta</label>
+                        <input type="date" id="filtro-hasta" class="search-input" onchange="renderRegistro()">
+                    </div>
+                </div>
+
+                <div id="lista-registro"></div>
+
+                <div class="actions-grid" style="margin-top:10px;">
+                    <button class="btn btn-ghost btn-sm" onclick="cargarMasRegistro()">↓ Cargar más</button>
+                    <button class="btn btn-ghost btn-sm" onclick="exportarRegistroCSV()">⬇ Exportar CSV</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════ -->
+        <!-- TAB: SISTEMA (solo admin) -->
+        <!-- ══════════════════════════ -->
+        <div id="tab-sistema" class="tab-content">
+
+            <div class="card" style="padding:16px;">
+                <div class="section-title">Mi cuenta</div>
+                <p style="font-size:0.78rem;color:var(--textdim);margin-bottom:10px;">
+                    Te enviaremos un correo a <b id="mi-correo-txt" style="color:var(--text)"></b> para restablecer tu contraseña.
+                </p>
+                <button class="btn btn-ghost" onclick="cambiarMiPassword()">🔑 Cambiar mi contraseña</button>
+                <p style="font-size:0.68rem;color:var(--muted);margin-top:10px;line-height:1.4;">
+                    ¿No te llega el correo? Casi siempre cae en <b>spam/correo no deseado</b>, porque lo envía
+                    <span style="color:var(--textdim)">noreply@sistematimbre.firebaseapp.com</span>. Revisa esa carpeta primero.
+                </p>
+            </div>
+
+            <div class="card" style="padding:16px;">
+                <div class="section-title">Respaldo de datos</div>
+                <p style="font-size:0.78rem;color:var(--textdim);margin-bottom:10px;">
+                    Descarga una copia completa de horarios, usuarios y registro en un archivo JSON.
+                </p>
+                <button class="btn btn-ghost" onclick="descargarRespaldo()">💾 Descargar respaldo</button>
+            </div>
+
+            <div class="card" style="padding:16px;">
+                <div class="section-title">Acerca del sistema</div>
+                <div id="info-sistema" class="mini-resumen"></div>
+            </div>
+
+        </div>
+
+        <div id="status-bar">Listo.</div>
+
+        <!-- ══════════════════════════ -->
+        <!-- MENÚ INFERIOR (solo admin) -->
+        <!-- ══════════════════════════ -->
+        <div id="bottom-nav" class="bottom-nav hidden">
+            <button class="nav-btn active" data-tab="inicio" onclick="mostrarTab('inicio')">
+                <span class="nav-icon">🏠</span><span>Inicio</span>
+            </button>
+            <button class="nav-btn" data-tab="timbre" onclick="mostrarTab('timbre')">
+                <span class="nav-icon">🔔</span><span>Timbre</span>
+            </button>
+            <button class="nav-btn" data-tab="usuarios" onclick="mostrarTab('usuarios')">
+                <span class="nav-icon">👥</span><span>Usuarios</span>
+                <span id="badge-pendientes" class="nav-badge hidden">0</span>
+            </button>
+            <button class="nav-btn" data-tab="registro" onclick="mostrarTab('registro')">
+                <span class="nav-icon">📋</span><span>Registro</span>
+            </button>
+            <button class="nav-btn" data-tab="sistema" onclick="mostrarTab('sistema')">
+                <span class="nav-icon">⚙️</span><span>Sistema</span>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- ══════════════════════════ -->
+    <!-- MODAL DE CONFIRMACIÓN     -->
+    <!-- ══════════════════════════ -->
+    <div id="modal-overlay" class="modal-overlay hidden">
+        <div class="modal-box">
+            <p id="modal-mensaje"></p>
+            <div class="modal-actions">
+                <button class="btn btn-ghost btn-sm" onclick="cerrarModal()">Cancelar</button>
+                <button class="btn btn-red btn-sm" id="modal-confirmar-btn">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="supabase.js"></script>
+<script src="app.js"></script>
+<script src="users.js"></script>
+</body>
+</html>
