@@ -2,40 +2,44 @@
 //  SUPABASE — Historial / Bitácora (v6.1)
 // ══════════════════════════════════════════════
 
-// ⚠️ Pega aquí tu Publishable key (sb_publishable_...)
 const SUPABASE_URL = 'https://kzqdjxzobuiqxihefuni.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_CLP73Z8_iBpsFwyFNMuCUQ_vSlmmvE8';
 
-// Cliente Supabase (se crea cuando el SDK esté cargado)
 let supabase = null;
 
 function initSupabase() {
-    if (typeof window.supabase === 'undefined') {
-        console.error('Supabase SDK no cargado');
+    if (typeof window.supabase === 'undefined' || typeof window.supabase.createClient !== 'function') {
+        console.error('[Supabase] SDK no cargado. Revisa el <script> del CDN.');
         return false;
     }
-    if (!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes('PEGA_AQUI')) {
-        console.warn('Falta configurar SUPABASE_ANON_KEY en supabase.js');
+    if (!SUPABASE_ANON_KEY) {
+        console.error('[Supabase] Falta la API key');
         return false;
     }
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    return true;
+    try {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('[Supabase] Cliente inicializado OK');
+        return true;
+    } catch (e) {
+        console.error('[Supabase] Error al crear cliente:', e);
+        return false;
+    }
 }
 
 /**
  * Guarda una acción en el historial de Supabase.
- * @param {string} accion  - ej: 'inicio_sesion', 'horario_agregado'
- * @param {string} detalle - texto opcional
- * @param {object} extra   - { tipo, duracion_seg, metadata }
  */
 async function guardarEnHistorial(accion, detalle = '', extra = {}) {
     if (!supabase) {
-        if (!initSupabase()) return;
+        if (!initSupabase()) {
+            console.error('[Supabase] No se pudo inicializar al guardar');
+            return;
+        }
     }
 
     const fila = {
-        uid: currentUID || null,
-        email: currentEmail || null,
+        uid: (typeof currentUID !== 'undefined' ? currentUID : null) || null,
+        email: (typeof currentEmail !== 'undefined' ? currentEmail : null) || null,
         accion,
         detalle: detalle || null,
         tipo: extra.tipo || 'accion',
@@ -43,20 +47,28 @@ async function guardarEnHistorial(accion, detalle = '', extra = {}) {
         metadata: extra.metadata || {}
     };
 
+    console.log('[Supabase] Guardando:', fila);
+
     try {
-        const { error } = await supabase.from('historial').insert([fila]);
+        const { data, error } = await supabase.from('historial').insert([fila]).select();
         if (error) {
-            console.error('Error guardando historial en Supabase:', error);
+            console.error('[Supabase] Error INSERT:', error.message, error);
+            if (typeof setStatus === 'function') {
+                setStatus('Error historial: ' + error.message, 'err');
+            }
+            return;
         }
+        console.log('[Supabase] Guardado OK:', data);
     } catch (e) {
-        console.error('Excepción al guardar historial:', e);
+        console.error('[Supabase] Excepción:', e);
+        if (typeof setStatus === 'function') {
+            setStatus('Error historial: ' + e.message, 'err');
+        }
     }
 }
 
 /**
- * Carga el historial desde Supabase (más recientes primero).
- * @param {number} limite
- * @param {object} filtros - { accion, email, desde, hasta, tipo }
+ * Carga el historial desde Supabase.
  */
 async function cargarHistorialSupabase(limite = 80, filtros = {}) {
     if (!supabase) {
@@ -78,19 +90,20 @@ async function cargarHistorialSupabase(limite = 80, filtros = {}) {
     try {
         const { data, error } = await query;
         if (error) {
-            console.error('Error leyendo historial:', error);
+            console.error('[Supabase] Error SELECT:', error.message, error);
+            if (typeof setStatus === 'function') {
+                setStatus('Error leyendo historial: ' + error.message, 'err');
+            }
             return [];
         }
+        console.log('[Supabase] Leídos', (data || []).length, 'registros');
         return data || [];
     } catch (e) {
-        console.error('Excepción al leer historial:', e);
+        console.error('[Supabase] Excepción SELECT:', e);
         return [];
     }
 }
 
-/**
- * Guarda una desconexión del ESP32.
- */
 async function guardarDesconexion(duracionSeg, inicioTs) {
     await guardarEnHistorial('desconexion_esp32', `Duración: ${duracionSeg}s`, {
         tipo: 'desconexion',
@@ -98,3 +111,34 @@ async function guardarDesconexion(duracionSeg, inicioTs) {
         metadata: { inicio: inicioTs || null }
     });
 }
+
+/**
+ * Prueba rápida: escribe una fila de test y la muestra en consola.
+ * Puedes llamar esto desde la consola del navegador: probarSupabase()
+ */
+async function probarSupabase() {
+    if (!initSupabase()) {
+        alert('No se pudo inicializar Supabase. Mira la consola (F12).');
+        return;
+    }
+    console.log('[Supabase] Probando INSERT...');
+    const { data, error } = await supabase.from('historial').insert([{
+        accion: 'prueba_consola',
+        detalle: 'Test manual desde el navegador',
+        tipo: 'accion',
+        email: 'test@local'
+    }]).select();
+
+    if (error) {
+        console.error('[Supabase] FALLO:', error);
+        alert('Error: ' + error.message + '\n\nMira la consola (F12) para más detalle.');
+    } else {
+        console.log('[Supabase] ÉXITO:', data);
+        alert('¡Funciona! Se guardó en Supabase. Revisa Table Editor → historial');
+    }
+}
+
+// Inicializar al cargar
+document.addEventListener('DOMContentLoaded', () => {
+    initSupabase();
+});
