@@ -147,8 +147,13 @@ function actualizarProximoLive() {
     }
 }
 
-// ── Sincronización automática de hora (cada 24h) ─
+// ── Sincronización automática de hora ─────────
+// 1) Cada medianoche (+30s): solo timestamp
+// 2) Cada 12 horas y 5 minutos: comando FORZADO al ESP32
+const INTERVALO_SYNC_FORZADA_MS = (12 * 60 + 5) * 60 * 1000; // 12h 5min
+
 function programarSyncHora() {
+    // Sync ligera a medianoche (solo hora_unix_ms)
     const ahora = new Date();
     const mañana = new Date(ahora);
     mañana.setDate(mañana.getDate() + 1);
@@ -159,10 +164,37 @@ function programarSyncHora() {
         subirTimestampHora();
         setInterval(subirTimestampHora, 24 * 60 * 60 * 1000);
     }, msHastaMedianoche);
+
+    // Sync FORZADA cada 12h 5min (hora + comando_sync_hora)
+    // Primera ejecución: al cumplir el intervalo desde que se abre la sesión
+    // (si quieres que sea a horas fijas del día, dímelo y lo ajustamos)
+    setTimeout(() => {
+        forzarSyncHoraESP32();
+        setInterval(forzarSyncHoraESP32, INTERVALO_SYNC_FORZADA_MS);
+    }, INTERVALO_SYNC_FORZADA_MS);
+
+    console.log('[Sync] Forzada programada cada 12h 5min (' + INTERVALO_SYNC_FORZADA_MS + ' ms)');
 }
 
 function subirTimestampHora() {
     db.ref('hora_unix_ms').set(Date.now()).catch(e => console.error('Error subiendo hora:', e));
+}
+
+/** Envía hora + comando forzado de sincronización al ESP32 */
+function forzarSyncHoraESP32() {
+    const ts = Date.now();
+    console.log('[Sync] Forzando actualización de hora al ESP32:', new Date(ts).toLocaleString());
+    db.ref('hora_unix_ms').set(ts)
+        .then(() => db.ref('comando_sync_hora').set(true))
+        .then(() => {
+            if (typeof registrarAccion === 'function') {
+                registrarAccion('hora_actualizada', 'auto cada 12h5min');
+            }
+            if (typeof setStatus === 'function') {
+                setStatus('Hora del ESP32 actualizada (auto) ✓', 'ok');
+            }
+        })
+        .catch(e => console.error('[Sync] Error forzando hora:', e));
 }
 
 // ══════════════════════════════════════════════
@@ -454,7 +486,9 @@ function handleRegistro() {
     appSec.auth().createUserWithEmailAndPassword(email, pass)
         .then(cred => {
             const uid = cred.user.uid;
-            return db.ref('usuarios/' + uid).set({
+            // IMPORTANTE: escribir con la app secundaria (ya autenticada como el usuario nuevo).
+            // Si se usa db (app principal), auth.uid no coincide y Firebase da PERMISSION_DENIED.
+            return appSec.database().ref('usuarios/' + uid).set({
                 email,
                 rol: 'usuario',
                 estado: 'pendiente',
@@ -462,15 +496,14 @@ function handleRegistro() {
                 creado: Date.now(),
                 creadoPor: 'auto-registro'
             }).then(() => {
-                // Registrar solicitud en Supabase (historial permanente)
                 if (typeof guardarEnHistorial === 'function') {
-                    // temporalmente setear email para el log
                     const prevEmail = currentEmail;
+                    const prevUID = currentUID;
                     currentEmail = email;
                     currentUID = uid;
                     guardarEnHistorial('solicitud_registro', 'Solicitud de acceso pendiente de aprobación');
                     currentEmail = prevEmail;
-                    currentUID = null;
+                    currentUID = prevUID;
                 }
             });
         })
@@ -483,7 +516,12 @@ function handleRegistro() {
         })
         .catch(err => {
             console.error(err);
-            msgEl.textContent = 'Error: ' + traducirErrorAuth(err.code);
+            const codigo = err.code || err.message || '';
+            let texto = traducirErrorAuth(err.code);
+            if (String(codigo).includes('PERMISSION_DENIED') || String(err.message || '').includes('PERMISSION_DENIED')) {
+                texto = 'Sin permiso para crear el perfil. Revisa las reglas de Firebase (usuarios).';
+            }
+            msgEl.textContent = 'Error: ' + texto;
             msgEl.className = 'msg-err';
         })
         .finally(() => {
